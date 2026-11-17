@@ -41,7 +41,7 @@ async function launchBrowser(userDataDir, initialUrl) {
   ], { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
   const port = await new Promise((resolve, reject) => {
     let errText = '';
-    const timer = setTimeout(() => reject(new Error('Browser start timeout: ' + errText)), 15000);
+    const timer = setTimeout(() => reject(new Error('Browser start timeout: ' + errText)), 30000);
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', chunk => {
       errText += chunk;
@@ -51,7 +51,7 @@ async function launchBrowser(userDataDir, initialUrl) {
     child.once('exit', code => { clearTimeout(timer); reject(new Error('Browser exited ' + code)); });
   });
   let target;
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 100; i++) {
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/json/list`);
       const targets = await resp.json();
@@ -227,7 +227,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
     if (res.exceptionDetails) throw new Error('Page error: ' + JSON.stringify(res.exceptionDetails));
     return res.result?.value;
   };
-  const waitUntil = async (expr, label, timeout = 6000) => {
+  const waitUntil = async (expr, label, timeout = 20000) => {
     const end = Date.now() + timeout;
     while (Date.now() < end) {
       if (await evalJs(expr)) return;

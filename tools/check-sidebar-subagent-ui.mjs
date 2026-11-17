@@ -110,7 +110,8 @@ try{
    await mkdir(join(repo,'.data','issue24-validation'),{recursive:true});
    await page.screenshot({path:join(repo,'.data','issue24-validation',`sidebar-fixture-${lang}.png`)});
    await page.keyboard.press('Escape');
-   await page.evaluate(()=>fullView());await expectPane('aux-pane','70.0','46%');
+   await page.evaluate(()=>fullView());await settle();await expectPane('aux-pane','70.0','46%');
+   await page.waitForFunction(()=>document.querySelectorAll('[data-ag-pulse-bar]').length===1&&document.querySelector('#aux-pane [data-ag-pulse-bar]')?.id==='ag-pulse-status-bar',{timeout:2200});
    assert.equal(await bars.count(),1);assert.equal(await auxStrip.getAttribute('id'),'ag-pulse-status-bar');
    // Initial loading is also isolated, even without any previously known owner.
    await page.goto(`http://127.0.0.1:${server.address().port}/?lang=${lang}&missing=1`);
