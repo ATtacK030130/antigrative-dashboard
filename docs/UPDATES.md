@@ -9,6 +9,19 @@ change a CLI status line, update Antigravity itself, or modify account settings.
 Language, theme and usage data are retained. No transcript or account credential
 is included in the public GitHub requests.
 
+## Repository move: one-time manual App update
+
+Starting with v0.9.1, App update checks use the temporary
+[maintenance repository](https://github.com/ATtacK030130/antigrative-dashboard).
+Versions through v0.8.20 still check the previous repository. If that address is
+unavailable, they cannot discover this move automatically. Download the new
+[release ZIP](https://github.com/ATtacK030130/antigrative-dashboard/releases/latest),
+extract it, and run `python manage.py install` once (`python3` on Linux/macOS).
+Fully quit and reopen the App; later checks use the new repository. This manual
+installation preserves language preferences and saved statistics, enables the
+plugin and uses the default runtime integration. IDE users install the release
+VSIX separately; CLI users follow [CLI installation](CLI.md).
+
 The update UI shows measured download bytes/percentage. Checking,
 verification, extraction, backup and installation use an indeterminate bar;
 they do not invent an overall percentage. The fill follows the host accent and
@@ -130,13 +143,12 @@ is visible. Log ports remain hints, not proof of ownership. Native discovery
 keeps its fast path; timeout/output budgets, concurrent-request coalescing and
 failure backoff remain in place. No VPN setting changes or data reset are needed.
 
-Install **v0.8.20** through **Context details → ⋯ → Check for updates**, then fully
-quit and reopen the host once. A plugin-only restart cannot revoke old callbacks
-already recreated in the open page. If an older updater already fails installation,
-use `antigrative-dashboard-0.8.20.zip` for a one-time manual repair; standalone IDE
-users should install `antigrative-dashboard-ide-0.8.20.vsix` and reopen the IDE.
-Existing release tags remain available. No statistics reset or manual deletion of
-checkpoint/ledger files is required for this upgrade.
+Install **v0.9.1 or later**, then fully quit and reopen the host once. A
+plugin-only restart cannot revoke old callbacks already recreated in the open
+page. If the previous repository is unavailable or an older updater fails, use
+the release ZIP for the one-time manual installation described above; standalone
+IDE users should install the release VSIX and reopen the IDE. No statistics reset
+or manual deletion of checkpoint/ledger files is required for this upgrade.
 
 ## Windows working-directory fix (Issue #21)
 

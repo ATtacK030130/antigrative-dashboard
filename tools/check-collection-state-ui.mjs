@@ -69,8 +69,9 @@ async function verifyNarrowStateMatrix(page,strip){
    await page.waitForFunction(mode=>{const w=document.getElementById('ag-pulse-status-bar');return !w.shadowRoot.querySelector('.refresh[aria-busy=true]')&&(w.dataset.collection||'')===(mode.startsWith('processing')?'processing':mode==='limited'?'limited':'');},mode);
    for(const density of ['icons','full']){
     await page.evaluate(density=>document.querySelector('.composer').style.maxWidth=density==='icons'?'260px':'1000px',density);
+    const expectedDensity=mode==='empty'?'icons':density;
     const screenshot=theme==='light'&&mode==='normal'&&density==='icons'?'fixed-light-'+await strip.getAttribute('lang')+'.png':null;
-    await verifyGlyphs(page,strip,density,expected,screenshot);
+    await verifyGlyphs(page,strip,expectedDensity,expected,screenshot);
    }
    cases.push({theme,mode});
   }
@@ -91,10 +92,11 @@ try{for(const lang of ['en','zh-CN','zh-TW']){
  assert.equal(await strip.locator('[data-card=cache]').getAttribute('aria-label'),label);
  assert.equal(await strip.locator('#samples').textContent(),'—');
  await strip.locator('[data-card=cache]').click();const notice=strip.locator('#cache-card .collection-notice');await notice.waitFor({state:'visible'});
- await notice.locator('summary').click();assert.match(await notice.locator('.collection-budget-size').textContent(),/8\.00 MiB/);assert.equal(await notice.locator('a').getAttribute('href'),'https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/main/docs/LONG_CONVERSATIONS.md');
+ await notice.locator('summary').click();assert.match(await notice.locator('.collection-budget-size').textContent(),/8\.00 MiB/);assert.equal(await notice.locator('a').getAttribute('href'),'https://github.com/ATtacK030130/antigrative-dashboard/blob/main/docs/LONG_CONVERSATIONS.md');
  for(const mode of ['saved','serialized','field','empty','normal','limited']){
   await page.keyboard.press('Escape');await page.selectOption('#scenario',mode);
-  await page.waitForFunction(mode=>{const r=document.getElementById('ag-pulse-status-bar').shadowRoot;return ['empty','normal'].includes(mode)?!document.getElementById('ag-pulse-status-bar').dataset.collection:mode==='saved'?r.getElementById('tps').textContent==='50.0':r.getElementById('tps').textContent==='—';},mode);
+  await page.waitForFunction(mode=>{const w=document.getElementById('ag-pulse-status-bar'),r=w.shadowRoot;if(['empty','normal'].includes(mode))return !w.dataset.collection&&w.dataset.density===(mode==='empty'?'icons':'full')&&!w.dataset.motion;return mode==='saved'?r.getElementById('tps').textContent==='50.0':r.getElementById('tps').textContent==='—';},mode);
+  if(mode==='empty')assert.equal(await strip.locator('.bar .chip:visible').count(),3);
   await strip.locator('[data-card=cache]').click();
   if(mode==='saved'){assert.match(await notice.locator('.collection-state').textContent(),/Last complete|上次完整/);assert.equal(await strip.locator('#tps').textContent(),'50.0');}
   if(mode==='field'){await page.waitForFunction(()=>document.getElementById('ag-pulse-status-bar').shadowRoot.querySelector('#cache-card .collection-budget-size').textContent.includes('16,385'));assert.doesNotMatch(await notice.locator('.collection-budget-size').textContent(),/MiB/);}

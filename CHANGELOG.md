@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1 — 2026-11-17
+
+- Move the project's maintenance, release downloads and App update checks to `ATtacK030130/antigrative-dashboard`, while preserving the IDE extension identity (`you-should-know-me.antigrative-dashboard-ide`) and existing user data directories. Existing installations through `v0.8.20` should be updated manually once from the new repository; later App update checks use `ATtacK030130/antigrative-dashboard`.
+- Add switchable **Pixel cat** (`cat`) and **Minimal** (`minimal`) speed card styles (`speedStyle` preference), featuring an animated stride-synced speed trail, peak speed readout and localized toggle across English, Simplified Chinese and Traditional Chinese.
+- Add quota pace outlook badges (`Comfortable` / `Tight` / `Runs out early`), hatched linear depletion forecasts on five-hour and weekly quota bars, and active quota-window observed token volumes with proportional full-window reference estimates.
+- Add `All local` / `Current account` scope switching (`usageScope` preference) in Token usage across desktop App and standalone IDE, aggregating across local accounts and unauthenticated sessions in `usage-v1`, alongside decoupled per-conversation persistence (`history-v1/conversations/<id>.json` with fallback).
+- Synchronize inline widget, sidecar panel and IDE typography with Antigravity Appearance font settings (`--pulse-font`, `--pulse-font-mono`) via live host CSS variables and sanitized `config.json` fallbacks, invalidating density probes on font changes.
+- Verify against Antigravity desktop App **2.32.2** host resources and embedded SDK, plus end-to-end Chromium CDP UI regressions (`ui-browser.test.mjs`) and Node/IDE/Python test suites.
+
 ## 0.8.20 — 2026-11-02
 
 - Fix missing dashboard controls in standalone Antigravity IDE 2.6.0: discover the native Agent Webview and its cross-process conversation frame before mounting the shared widget. Keep the legacy workbench adapter for IDE 2.5.5.

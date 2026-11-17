@@ -1,7 +1,8 @@
 {
-  "version": "0.8.0",
+  "version": "0.9.1",
   "source": "compat/inline-widget.cjs",
   "data": "illustrative",
+  "host": "Antigravity Desktop 2.32.2",
   "scale": 2,
   "files": [
     "hero.png",

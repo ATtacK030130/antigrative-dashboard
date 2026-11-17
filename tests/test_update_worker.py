@@ -55,6 +55,30 @@ class UpdateWorkerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             worker.release_plan({**release, 'prerelease': True}, '0.8.6')
 
+    def test_migrated_repository_is_the_only_trusted_release_source(self):
+        repository = 'ATtacK030130/antigrative-dashboard'
+        self.assertEqual(worker.REPO, repository)
+        base = f'https://github.com/{repository}/releases/download/v0.9.2/'
+        name = 'antigrative-dashboard-0.9.2.zip'
+        release = {'tag_name': 'v0.9.2', 'assets': [
+            {'name': name, 'size': 123, 'browser_download_url': base + name},
+            {'name': name + '.sha256', 'browser_download_url': base + name + '.sha256'}]}
+        self.assertEqual(worker.release_plan(release, '0.9.1')['url'], base + name)
+        for replacement in ['YOU-SHOULD-KNOW-ME/antigrative-dashboard',
+                            'ATtacK-atk-114108/antigrative-dashboard',
+                            'ATtacK030130/other-repository']:
+            for index in range(2):
+                with self.subTest(repository=replacement, asset=index):
+                    assets = [dict(asset) for asset in release['assets']]
+                    assets[index]['browser_download_url'] = assets[index]['browser_download_url'].replace(repository, replacement)
+                    with self.assertRaises(ValueError):
+                        worker.release_plan({**release, 'assets': assets}, '0.9.1')
+
+        with patch.object(worker, 'fetch', return_value=json.dumps(release).encode()) as fetch:
+            self.assertEqual(worker.latest_release('0.9.1'), release)
+            self.assertEqual(fetch.call_args.args[0],
+                             'https://api.github.com/repos/ATtacK030130/antigrative-dashboard/releases/latest')
+
     def test_checksum_never_uses_an_unrelated_filename(self):
         value = 'a' * 64
         self.assertEqual(worker.checksum(value + '  correct.zip', 'correct.zip'), value)

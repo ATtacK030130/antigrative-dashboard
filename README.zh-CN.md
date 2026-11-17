@@ -1,40 +1,40 @@
 <div align="center">
 
-<img src="docs/assets/hero-zh.png?v=0.8.0" width="100%" alt="Antigrative Dashboard：最新版速度、缓存和上下文控件，就在输入框旁。">
+<img src="docs/assets/hero-zh.png?v=0.9.1" width="100%" alt="Antigrative Dashboard v0.9.1：像素猫速度、缓存和上下文控件，就在输入框旁。">
 
 # Antigrative Dashboard
 
-模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
+模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.8.20](https://img.shields.io/badge/version-0.8.20-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.1](https://img.shields.io/badge/version-0.9.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.32.2](https://img.shields.io/badge/Antigravity-2.32.2-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [看看效果](#看看效果) · [IDE](#antigravity-ide) · [CLI](#antigravity-cli-状态栏) · [开始安装](#安装) · [启用与停用](#可插拔) · [兼容性](#兼容性) · [常见问题](#常见问题)
 
 </div>
 
-**v0.8.20：** 修复独立 Antigravity IDE 2.6.0 中控件不显示或无法读取数据的问题，适配新版 Agent 页面和本地接口，同时保留旧版兼容。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.20) · [兼容性](COMPATIBILITY.md)。
+**v0.9.1：** 维护与 App 更新源迁至 `ATtacK030130/antigrative-dashboard`；新增像素猫 / 简约速度卡切换、额度消耗速率预测与周期实测用量参考、Token 用量「本机全部 / 当前账号」范围切换、以及宿主 Appearance 字体同步，已在 Antigravity Desktop 2.32.2 实机适配。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.1) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
-<img src="docs/assets/responsive-zh.png?v=0.8.0" width="100%" alt="最新版主对话窄窗口三图标布局，以及子代理输入框旁的独立统计。">
+<img src="docs/assets/responsive-zh.png?v=0.9.1" width="100%" alt="最新版主对话窄窗口三图标布局，以及子代理输入框旁的独立统计。">
 
 <table>
 <tr><th width="50%">生成速度与缓存</th><th width="50%">上下文与共享额度</th></tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/assets/speed-zh.png?v=0.8.0" width="100%" alt="最新版生成速度详情卡"><br><img src="docs/assets/widget-zh.png?v=0.8.0" width="100%" alt="最新版 Token 用量与缓存详情卡"></td>
-<td width="50%" valign="top"><img src="docs/assets/context-zh.png?v=0.8.0" width="100%" alt="最新版上下文、5h 和周额度详情，以及持久化语言切换入口"></td>
+<td width="50%" valign="top"><img src="docs/assets/speed-zh.png?v=0.9.1" width="100%" alt="最新版生成速度详情卡"><br><img src="docs/assets/widget-zh.png?v=0.9.1" width="100%" alt="最新版 Token 用量与缓存详情卡"></td>
+<td width="50%" valign="top"><img src="docs/assets/context-zh.png?v=0.9.1" width="100%" alt="最新版上下文、消耗预测、5h 和周额度详情，以及持久化语言切换入口"></td>
 </tr>
 </table>
 
 <table>
 <tr><th width="50%">每日 / 每周活动</th><th width="50%">按模型统计用量</th></tr>
 <tr>
-<td width="50%"><img src="docs/assets/usage-overview-zh.png?v=0.8.0" width="100%" alt="最新版 Token 用量活动概览，支持每日和每周贡献图"></td>
-<td width="50%"><img src="docs/assets/usage-details-zh.png?v=0.8.0" width="100%" alt="最新版模型用量柱状图，支持天周月切换和主题配色"></td>
+<td width="50%"><img src="docs/assets/usage-overview-zh.png?v=0.9.1" width="100%" alt="最新版 Token 用量活动概览，支持每日和每周贡献图及本机全部/当前账号切换"></td>
+<td width="50%"><img src="docs/assets/usage-details-zh.png?v=0.9.1" width="100%" alt="最新版模型用量柱状图，支持天周月切换和主题配色"></td>
 </tr>
 </table>
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.8.20.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.1.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
@@ -89,7 +89,7 @@ Antigravity 扩展目前尚未兼容。详见 [IDE 安装、更新、诊断和�
 
 以下命令安装**桌面 App 适配器**；IDE 用户请使用[上方专用 VSIX 安装流程](#antigravity-ide)。
 
-适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 / 2.22.0 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。各平台完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 – 2.32.2 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。各平台完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
 
 Linux / macOS 使用 `python3 manage.py install` 或 `sh install.sh`，启停和卸载命令同样把 `python` 换成 `python3`。无需 sudo，不修改应用归档。
 
@@ -97,13 +97,15 @@ Linux / macOS 使用 `python3 manage.py install` 或 `sh install.sh`，启停和
 
 ### 手动安装
 
-下载 [最新 Release](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/latest) 的 ZIP 并解压，或克隆仓库：
+下载 [最新 Release](https://github.com/ATtacK030130/antigrative-dashboard/releases/latest) 的 ZIP 并解压，或克隆仓库：
 
 ```powershell
-git clone https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard.git
+git clone https://github.com/ATtacK030130/antigrative-dashboard.git
 cd antigrative-dashboard
 python manage.py install
 ```
+
+**已有安装如何迁移：** 如果旧仓库无法访问，旧版（`<= v0.8.20`）App 更新器无法自行发现本次迁移。请下载新发布页的 ZIP，解压后执行一次 `python manage.py install`（Linux/macOS 使用 `python3`），再完整重启 App；之后 App 检查更新会使用新仓库。IDE 需要单独安装新版 VSIX；CLI 使用新 ZIP 重新执行 `python manage.py install-cli`，如之前指定过 `--language` 或 `--node`，请一并带上。
 
 完全退出并重新打开 Antigravity。打开对话，模型选择右侧就会出现额度与速率条。PowerShell 用户也可以运行 `./install.ps1`。
 
@@ -114,7 +116,7 @@ python manage.py install
 
 ```text
 请帮我安装并启用 Antigrative Dashboard。
-仓库：https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard
+仓库：https://github.com/ATtacK030130/antigrative-dashboard
 1. 读取 README.md、COMPATIBILITY.md、docs/CLI.md 和 ide/README.md。先用只读检查
    分析系统、可执行文件、宿主版本和已有插件配置，区分桌面 App、Antigravity CLI
    （agy）和独立 Antigravity IDE；不能仅凭系统判断安装目标。
@@ -234,7 +236,7 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 ## 兼容性
 
-当前实机验证：**Windows 11 / Antigravity App 2.21.1、2.22.0**；2.22.0 的真实上下文读取和合并悬浮卡已验收。Linux/macOS 的完整登录界面仍需用户实机验证，自动化覆盖范围见兼容性文档。
+当前实机验证：**Windows 11 / Antigravity App 2.32.2**（以及早期 2.21.1、2.22.0、2.28.x 版本），真实上下文读取、额度预测、像素猫速度卡和合并悬浮卡均已验证。Linux/macOS 的完整登录界面仍需用户实机验证，自动化覆盖范围见兼容性文档。
 
 独立 Antigravity IDE 2.5.5 和 2.6.0 提供单独 VSIX，Windows 已实机验证。其他编辑器扩展和 DSH 暂不支持。Linux/macOS 桌面版已适配原生路径、后台发现和 shell 安装器；IDE 有自动化覆盖，完整登录界面仍待实机验收，详见兼容性文档。
 参考 DSH Rail Music 的项目组织与文档风格，但安装接口不同，不能使用 `dsh plugin add` 安装 Antigrative Dashboard。

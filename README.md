@@ -1,40 +1,40 @@
 <div align="center">
 
-<img src="docs/assets/hero.png?v=0.8.0" width="100%" alt="Antigrative Dashboard v0.8.0: current speed, cache and context controls beside the input.">
+<img src="docs/assets/hero.png?v=0.9.1" width="100%" alt="Antigrative Dashboard v0.9.1: pixel-cat speed, cache and context controls beside the input.">
 
 # Antigrative Dashboard
 
-Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
+Token throughput, cache hits and context usage in the model selector row. Hover over context for pace forecasts, window usage and five-hour / weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.8.20](https://img.shields.io/badge/version-0.8.20-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.1](https://img.shields.io/badge/version-0.9.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.32.2](https://img.shields.io/badge/Antigravity-2.32.2-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [Preview](#preview) · [IDE](#antigravity-ide) · [CLI](#antigravity-cli-status-line) · [Install](#install) · [Enable or remove](#plug-and-unplug) · [Compatibility](#compatibility) · [FAQ](#faq) · [中文](README.zh-CN.md)
 
 </div>
 
-**v0.8.20:** Fix the missing dashboard in standalone Antigravity IDE 2.6.0. Support its Agent Webview and owned local API port while retaining legacy IDE compatibility. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.20) · [Compatibility](COMPATIBILITY.md).
+**v0.9.1:** Maintenance and App update checks moved to `ATtacK030130/antigrative-dashboard`. Adds switchable Pixel cat / Minimal speed cards, quota pace forecasts with window token references, `All local` / `Current account` usage scopes, and Appearance font synchronization, verified against Antigravity Desktop 2.32.2. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.1) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
-<img src="docs/assets/responsive.png?v=0.8.0" width="100%" alt="Current three-icon layout in a narrow main chat and separate statistics beside a subagent input.">
+<img src="docs/assets/responsive.png?v=0.9.1" width="100%" alt="Current three-icon layout in a narrow main chat and separate statistics beside a subagent input.">
 
 <table>
 <tr><th width="50%">Speed and cache</th><th width="50%">Context and shared quotas</th></tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/assets/speed.png?v=0.8.0" width="100%" alt="Current generation speed detail card"><br><img src="docs/assets/widget.png?v=0.8.0" width="100%" alt="Current token usage and cache detail card"></td>
-<td width="50%" valign="top"><img src="docs/assets/context.png?v=0.8.0" width="100%" alt="Current context, five-hour and weekly quota details, with the saved-language control"></td>
+<td width="50%" valign="top"><img src="docs/assets/speed.png?v=0.9.1" width="100%" alt="Current generation speed detail card"><br><img src="docs/assets/widget.png?v=0.9.1" width="100%" alt="Current token usage and cache detail card"></td>
+<td width="50%" valign="top"><img src="docs/assets/context.png?v=0.9.1" width="100%" alt="Current context, five-hour and weekly quota details, with pace forecast and language control"></td>
 </tr>
 </table>
 
 <table>
 <tr><th width="50%">Daily and weekly activity</th><th width="50%">Usage by model</th></tr>
 <tr>
-<td width="50%"><img src="docs/assets/usage-overview.png?v=0.8.0" width="100%" alt="Current Token usage activity with daily and weekly contribution grids"></td>
-<td width="50%"><img src="docs/assets/usage-details.png?v=0.8.0" width="100%" alt="Current model usage chart with day, week and month controls and theme-adapted colors"></td>
+<td width="50%"><img src="docs/assets/usage-overview.png?v=0.9.1" width="100%" alt="Current Token usage activity with daily and weekly contribution grids"></td>
+<td width="50%"><img src="docs/assets/usage-details.png?v=0.9.1" width="100%" alt="Current model usage chart with day, week and month controls and theme-adapted colors"></td>
 </tr>
 </table>
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.8.20.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.9.1.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with
@@ -93,19 +93,21 @@ Available in **v0.6.0**: an independent adapter for the official Antigravity CLI
 
 The commands below install the **desktop App adapter**. IDE users should use the [separate VSIX instructions above](#antigravity-ide).
 
-Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1 / 2.22.0; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-platform verification scope.
+Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1 – 2.32.2; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-platform verification scope.
 
 > The inline model-row position has no public plugin mounting API. A standard Antigravity sidecar now attaches the widget through the existing local renderer debugging endpoint. Default installation does not modify `resources/app.asar`. This is unofficial; future changes to the host DOM, debugging channel, SDK or metrics API may require an adapter update. The native side panel remains a fallback.
 
-Download the ZIP from the [latest release](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/latest), extract it to a permanent folder, or clone the repository:
+Download the ZIP from the [latest release](https://github.com/ATtacK030130/antigrative-dashboard/releases/latest), extract it to a permanent folder, or clone the repository:
 
 ```powershell
-git clone https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard.git
+git clone https://github.com/ATtacK030130/antigrative-dashboard.git
 cd antigrative-dashboard
 python manage.py install
 ```
 
 On Linux / macOS, use `python3 manage.py install` or `sh install.sh` (and `python3` for the lifecycle commands below). Never run the installer with sudo.
+
+**Moving an existing installation:** If the previous repository is unavailable, older App releases (`<= v0.8.20`) cannot find this update themselves. Download the new release ZIP and run `python manage.py install` once (`python3` on Linux/macOS), then fully restart the App; later App checks use this repository. IDE users install the new VSIX separately. For CLI, rerun `python manage.py install-cli` from the new ZIP, including any previously chosen `--language` or `--node` options.
 
 Fully quit and reopen Antigravity. Open a conversation: the strip appears beside the model selector. PowerShell users can also run `./install.ps1`.
 
@@ -116,7 +118,7 @@ The installer copies and enables the plugin and restores any exactly verified le
 
 ```text
 Install and enable Antigrative Dashboard on this computer.
-Repository: https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard
+Repository: https://github.com/ATtacK030130/antigrative-dashboard
 1. Read README.md, COMPATIBILITY.md, docs/CLI.md and ide/README.md. Inspect the OS,
    available executables, host versions and existing dashboard configuration with
    read-only checks. Distinguish desktop App, Antigravity CLI (agy) and standalone
@@ -231,7 +233,7 @@ Desktop: `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/usage-
 
 ## Compatibility
 
-Desktop verified on **Windows 11 / Antigravity App 2.21.1 and 2.22.0**, including real context readings and the combined hover card. A separate VSIX supports standalone Antigravity IDE 2.5.5 and 2.6.0 on Windows. Other editor extensions and DSH are unsupported. Linux/macOS have automated checks; full signed-in desktop/IDE GUI verification is still open. See COMPATIBILITY.md.
+Desktop verified on **Windows 11 / Antigravity App 2.32.2** (and earlier 2.21.1 / 2.22.0 / 2.28.x releases), including real context readings, quota pace forecasts, pixel-cat speed cards and the combined hover card. A separate VSIX supports standalone Antigravity IDE 2.5.5 and 2.6.0 on Windows. Other editor extensions and DSH are unsupported. Linux/macOS have automated checks; full signed-in desktop/IDE GUI verification is still open. See COMPATIBILITY.md.
 Repository presentation is inspired by [DSH Rail Music](https://github.com/YOU-SHOULD-KNOW-ME/dsh-rail-music); installation APIs differ. `dsh plugin add` cannot install this project.
 
 [Full compatibility and recovery details →](COMPATIBILITY.md)
@@ -275,7 +277,7 @@ python manage.py package
 ```
 
 ZIP and SHA256 files are generated in `dist/`. Packaging uses an allowlist and excludes credentials, account settings, logs, SDK caches, and application archives.
-Generating README images is an optional developer task: `node tools/build-readme-assets.mjs` requires Playwright (or an absolute `PLAYWRIGHT_MODULE` path). It renders the actual widget code with illustrative metrics and produces English/Chinese assets. This is not an installation dependency.
+Generating README images is an optional developer task: `node tools/build-readme-assets.mjs` uses Edge/Chrome headless CDP (or Playwright when `PLAYWRIGHT_MODULE` is set), renders the actual widget code with illustrative metrics and produces English/Chinese assets. This is not an installation dependency.
 
 [Development guide →](docs/DEVELOPMENT.md) · [Changelog →](CHANGELOG.md)
 
