@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.4 — 2026-11-18
+
+- Harden `sidecars/panel/tests/ui-browser.test.mjs` against parallel Windows CI timeouts and orphan-browser hangs: guarantee headless Chromium/Edge child-process and `stderr` pipe cleanup when `launchBrowser` fails, raise the test `CdpConnection` timeout (`5s` → `30s`), relax 16-model stress render wait (`8s` → `20s`), and measure optimistic scope-switch latency in-page (`performance.now()`) rather than Node↔Edge WebSocket IPC wall time.
+- Retain all **v0.9.2** Antigravity Desktop **2.33.0+** launch entry-point configuration, self-healing, `manage.py launch`, and `debug-port-disabled` diagnostics unchanged, and leave the `v0.9.2` and `v0.9.3` Git tags intact.
+
 ## 0.9.3 — 2026-11-18
 
 - Stabilize Windows CI and Release verification gates on saturated `windows-latest` runners so the Antigravity Desktop **2.33.0+** adaptation publishes cleanly: replace the 30ms fixed sleep after `ingestLive` in `usage.test.mjs` with deterministic write-queue draining, raise the parallel-suite per-test timeout in `delegated-usage.test.mjs` (`5s` → `30s`, `bounded` `2s` → `10s`), and pre-warm cold-VM PowerShell `NetTCPIP` CIM providers in `tools/check-windows-discovery.mjs` while keeping production `8s` runtime discovery timeouts unchanged.

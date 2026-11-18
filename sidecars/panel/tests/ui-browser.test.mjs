@@ -39,42 +39,56 @@ async function launchBrowser(userDataDir, initialUrl) {
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`, initialUrl,
   ], { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
-  const port = await new Promise((resolve, reject) => {
-    let errText = '';
-    const timer = setTimeout(() => reject(new Error('Browser start timeout: ' + errText)), 30000);
-    child.stderr.setEncoding('utf8');
-    child.stderr.on('data', chunk => {
-      errText += chunk;
-      const m = errText.match(/DevTools listening on ws:\/\/[^:]+:(\d+)\//);
-      if (m) { clearTimeout(timer); resolve(Number(m[1])); }
+  child.unref();
+  let cdp = null;
+  try {
+    const port = await new Promise((resolve, reject) => {
+      let errText = '';
+      const cleanupStderr = () => {
+        child.stderr?.removeAllListeners('data');
+        try { child.stderr?.destroy(); } catch {}
+      };
+      const timer = setTimeout(() => { cleanupStderr(); reject(new Error('Browser start timeout: ' + errText)); }, 30000);
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', chunk => {
+        errText += chunk;
+        const m = errText.match(/DevTools listening on ws:\/\/[^:]+:(\d+)\//);
+        if (m) { clearTimeout(timer); cleanupStderr(); resolve(Number(m[1])); }
+      });
+      child.once('exit', code => { clearTimeout(timer); cleanupStderr(); reject(new Error('Browser exited ' + code)); });
     });
-    child.once('exit', code => { clearTimeout(timer); reject(new Error('Browser exited ' + code)); });
-  });
-  let target;
-  for (let i = 0; i < 100; i++) {
-    try {
-      const resp = await fetch(`http://127.0.0.1:${port}/json/list`);
-      const targets = await resp.json();
-      target = targets.find(t => t.type === 'page' && t.url.startsWith('http://127.0.0.1'));
-      if (target) break;
-    } catch {}
-    await new Promise(r => setTimeout(r, 100));
+    let target;
+    for (let i = 0; i < 150; i++) {
+      try {
+        const resp = await fetch(`http://127.0.0.1:${port}/json/list`);
+        const targets = await resp.json();
+        target = targets.find(t => t.type === 'page' && t.url.startsWith('http://127.0.0.1'));
+        if (target) break;
+      } catch {}
+      await new Promise(r => setTimeout(r, 100));
+    }
+    if (!target) throw new Error('Failed to discover Edge page target');
+    cdp = new CdpConnection(target.webSocketDebuggerUrl, { timeout: 30000 });
+    await cdp.open();
+    await cdp.command('Runtime.enable');
+    await cdp.command('Page.enable');
+    return { child, cdp };
+  } catch (err) {
+    try { cdp?.close(); } catch {}
+    killBrowser(child);
+    throw err;
   }
-  if (!target) throw new Error('Failed to discover Edge page target');
-  const cdp = new CdpConnection(target.webSocketDebuggerUrl);
-  await cdp.open();
-  await cdp.command('Runtime.enable');
-  await cdp.command('Page.enable');
-  return { child, cdp };
 }
 
 function killBrowser(child) {
   if (!child) return;
+  try { child.stderr?.destroy(); } catch {}
   if (process.platform === 'win32') {
-    spawnSync('taskkill', ['/F', '/T', '/PID', String(child.pid)], { stdio: 'ignore', windowsHide: true, timeout: 3000 });
+    spawnSync('taskkill', ['/F', '/T', '/PID', String(child.pid)], { stdio: 'ignore', windowsHide: true, timeout: 15000 });
   } else {
     try { child.kill('SIGKILL'); } catch {}
   }
+  try { child.kill(); } catch {}
 }
 
 test('font sync, scope switching and quota window reference render end-to-end in real Chromium', { skip: !EDGE_EXE }, async () => {
@@ -209,7 +223,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
     if (path === '/api/metrics') {
       const isUsageOnly = reqUrl.searchParams.get('usageOnly') === '1';
       if (isUsageOnly) usageOnlyCalls++;
-      else if (slowFullPoll && reqUrl.searchParams.get('force') === '1') await new Promise(r => setTimeout(r, 2500));
+      else if (slowFullPoll && reqUrl.searchParams.get('force') === '1') await new Promise(r => setTimeout(r, 5000));
       const scopeParam = reqUrl.searchParams.get('usageScope');
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(metricsPayload(scopeParam))); return;
     }
@@ -371,22 +385,24 @@ test('font sync, scope switching and quota window reference render end-to-end in
   const switchStart = Date.now();
   const immediate = await evalJs(`() => {
     const vs = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot;
+    const t0 = performance.now();
     vs.querySelector('[data-usage-scope="account"]').click();
     return {
+      inPageMs: performance.now() - t0,
       activeAttr: vs.getElementById('scope-controls').dataset.activeScope,
       pressed: vs.querySelector('[data-usage-scope="account"]').getAttribute('aria-pressed'),
       subtitle: vs.getElementById('subtitle').textContent,
     };
   }`);
-  assert.ok(Date.now() - switchStart < 150, 'click + optimistic UI state should resolve immediately');
+  assert.ok(immediate.inPageMs < 150, 'click + optimistic UI state should resolve immediately');
   assert.equal(immediate.activeAttr, 'account');
   assert.equal(immediate.pressed, 'true');
   assert.ok(immediate.subtitle.includes('当前账号'));
   await waitUntil(`() => {
     const vs = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot;
     return vs.querySelector('#totals .value')?.textContent === '11KToken';
-  }`, 'usage modal switched to account scope via fast usageOnly path', 1000);
-  assert.ok(Date.now() - switchStart < 1000, 'usageOnly path must not wait for 2500ms force poll');
+  }`, 'usage modal switched to account scope via fast usageOnly path', 3500);
+  assert.ok(Date.now() - switchStart < 4000, 'usageOnly path must not wait for 5000ms force poll');
   assert.ok(usageOnlyCalls >= 1);
   assert.equal(prefs.usageScope, 'account');
 
@@ -442,7 +458,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
   await waitUntil(`() => {
     const vs = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot;
     return vs.querySelector('#totals .value')?.textContent !== '33KToken';
-  }`, '16-model totals loaded', 8000);
+  }`, '16-model totals loaded', 20000);
 
   // Also prove ide/surface setMarkup accepts the exact static template in compat/usage-ui.cjs
   const pageTemplateMatch = usageSrc.match(/setMarkup\(page,`([^`]*)`\)/);
