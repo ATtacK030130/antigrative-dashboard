@@ -19,14 +19,15 @@ async function entryFixture(host,url,selection=false){
   const fakeProcess={env:host==='ide'?{AG_PULSE_IDE_PROFILE:'fixture'}:host==='app'?{ANTIGRAVITY_SIDECAR_WEB_PORT:'1'}:{},exit(){throw Error('Unexpected exit');},on(){},once(){}};
   const context=createContext({process:fakeProcess,console,URL,URLSearchParams,setInterval:()=>({unref(){}}),clearInterval(){},setTimeout:()=>({unref(){}}),clearTimeout(){}});
   const modules={
-    'node:fs':{readFileSync(file){state.diskReads++;return String(file).endsWith('.cjs')?'module.exports = function() {};':'{}';}},
+    'node:fs':{existsSync:()=>false,readFileSync(file){state.diskReads++;return String(file).endsWith('.cjs')?'module.exports = function() {};':'{}';}},
     'node:fs/promises':{readFile:async()=> 'module.exports = function() {};',mkdir:async()=>{},writeFile:async()=>{}},
     'node:http':{createServer(handler){if(host!=='preview')throw Error('Unexpected preview server');http=handler;return {listen(){}};}},
     'node:module':{createRequire:()=>()=>()=>({css:()=>''})},
     'store.mjs':{MetricsStore:Store},'usage.mjs':{DesktopUsage:Usage,UsageLedger:class{}},
     'sdk.mjs':{loadSidecarSdk:async()=>({SidecarApp:App,Response:class{}})},
     'runtime-ui.mjs':{RuntimeUi:Ui,makeRendererSource:()=>''},
-    'platform.mjs':{platformPaths:()=>({data:'fixture',settings:'settings.json'})},
+    'platform.mjs':{agentExecutables:()=>[],platformPaths:()=>({data:'fixture',settings:'settings.json'})},
+    'launch-config.mjs':{inspectHostArchive:async()=>({version:null,requiresDebugFlag:false}),inspectDesktopLaunch:async()=>({configured:false,supported:false,entrypoints:[]}),ensureDesktopLaunchConfig:async()=>({configured:false,repaired:false,supported:false,entrypoints:[]})},
     'preferences.mjs':{PreferencesStore:class{async snapshot(){return {};}}},
     'sidecar-owner.mjs':{SidecarOwner:Owner},'host-theme.mjs':{readHostTheme:async()=>({})},
     'panel-source.mjs':{panelAppSource:()=>'',panelPageSource:()=>''},

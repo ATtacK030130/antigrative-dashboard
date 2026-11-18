@@ -7,16 +7,16 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for pace forecasts, window usage and five-hour / weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.9.1](https://img.shields.io/badge/version-0.9.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.2](https://img.shields.io/badge/version-0.9.2-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.32.2](https://img.shields.io/badge/Antigravity-2.32.2-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.33.0](https://img.shields.io/badge/Antigravity-2.33.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [Preview](#preview) · [IDE](#antigravity-ide) · [CLI](#antigravity-cli-status-line) · [Install](#install) · [Enable or remove](#plug-and-unplug) · [Compatibility](#compatibility) · [FAQ](#faq) · [中文](README.zh-CN.md)
 
 </div>
 
-**v0.9.1:** Maintenance and App update checks moved to `ATtacK030130/antigrative-dashboard`. Adds switchable Pixel cat / Minimal speed cards, quota pace forecasts with window token references, `All local` / `Current account` usage scopes, and Appearance font synchronization, verified against Antigravity Desktop 2.32.2. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.1) · [Compatibility](COMPATIBILITY.md).
+**v0.9.2:** Adapts **Antigravity Desktop 2.33.0+**, where remote debugging is opt-in (`--remote-debugging-port=0 --remote-debugging-address=127.0.0.1`): `manage.py install` and the active sidecar automatically configure and self-heal user launch shortcuts / `.desktop` entries without editing `resources/app.asar`, and `manage.py launch` starts Antigravity directly with loopback debugging flags across Windows, Linux and macOS. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.2) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.9.1.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.9.2.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with
@@ -93,9 +93,9 @@ Available in **v0.6.0**: an independent adapter for the official Antigravity CLI
 
 The commands below install the **desktop App adapter**. IDE users should use the [separate VSIX instructions above](#antigravity-ide).
 
-Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1 – 2.32.2; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-platform verification scope.
+Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1 – 2.33.0; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-platform verification scope.
 
-> The inline model-row position has no public plugin mounting API. A standard Antigravity sidecar now attaches the widget through the existing local renderer debugging endpoint. Default installation does not modify `resources/app.asar`. This is unofficial; future changes to the host DOM, debugging channel, SDK or metrics API may require an adapter update. The native side panel remains a fallback.
+> The inline model-row position has no public plugin mounting API. A standard Antigravity sidecar attaches the widget through the host's local loopback renderer debugging endpoint. Starting with **Antigravity Desktop 2.33.0**, `--remote-debugging-port` is opt-in: `manage.py install` and the active sidecar configure user-owned Windows shortcuts / Linux `.desktop` entries with `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` without modifying `resources/app.asar`, and `python[3] manage.py launch` starts Antigravity directly with those flags (recommended on macOS or custom launches). The native side panel remains available regardless.
 
 Download the ZIP from the [latest release](https://github.com/ATtacK030130/antigrative-dashboard/releases/latest), extract it to a permanent folder, or clone the repository:
 
@@ -165,11 +165,12 @@ Run these commands from the project directory:
 
 | Action | Command | What happens |
 | --- | --- | --- |
-| Install or update | `python manage.py install` | Copy runtime adapter; preserve other settings and saved statistics |
+| Install or update | `python manage.py install` | Copy runtime adapter, configure user launch entry points, and preserve saved data |
+| Launch with inline bar | `python manage.py launch` | Start Antigravity Desktop with loopback `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` |
 | Disable | `python manage.py disable` | Disable the plugin and hide the strip on its next poll |
 | Enable | `python manage.py enable` | Start the plugin and show the strip again |
-| Inspect | `python manage.py status` | Check installation, enabled state, and runtime attachment health |
-| Uninstall | `python manage.py uninstall` | Remove this plugin; retain saved statistics and verified legacy backups |
+| Inspect | `python manage.py status` | Check installation, enabled state, host debug-port status, and runtime attachment health |
+| Uninstall | `python manage.py uninstall` | Remove this plugin, revert dashboard-managed launch flags, and retain saved statistics |
 
 First installation, plugin code updates, and uninstall require a full app restart. Enable and disable do not require reinstalling or rewriting the archive. `./uninstall.ps1` runs the uninstall command.
 
@@ -233,7 +234,7 @@ Desktop: `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/usage-
 
 ## Compatibility
 
-Desktop verified on **Windows 11 / Antigravity App 2.32.2** (and earlier 2.21.1 / 2.22.0 / 2.28.x releases), including real context readings, quota pace forecasts, pixel-cat speed cards and the combined hover card. A separate VSIX supports standalone Antigravity IDE 2.5.5 and 2.6.0 on Windows. Other editor extensions and DSH are unsupported. Linux/macOS have automated checks; full signed-in desktop/IDE GUI verification is still open. See COMPATIBILITY.md.
+Desktop verified on **Windows 11 / Antigravity App 2.33.0** (and earlier 2.21.1 – 2.32.2 releases), including real context readings, quota pace forecasts, pixel-cat speed cards and the combined hover card. A separate VSIX supports standalone Antigravity IDE 2.5.5 and 2.6.0 on Windows. Other editor extensions and DSH are unsupported. Linux/macOS have automated checks; full signed-in desktop/IDE GUI verification is still open. See COMPATIBILITY.md.
 Repository presentation is inspired by [DSH Rail Music](https://github.com/YOU-SHOULD-KNOW-ME/dsh-rail-music); installation APIs differ. `dsh plugin add` cannot install this project.
 
 [Full compatibility and recovery details →](COMPATIBILITY.md)

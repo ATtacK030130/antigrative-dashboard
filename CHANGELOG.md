@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2 — 2026-11-18
+
+- Adapt Antigravity Desktop **2.33.0+**, where Electron no longer opens `--remote-debugging-port` by default and clears `DevToolsActivePort` unless launched with `--remote-debugging-port`.
+- Automatically configure user-owned Antigravity Desktop launch entry points (`--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` on Windows `.lnk` shortcuts and Linux `~/.local/share/applications/antigravity.desktop`) during `manage.py install` without modifying `resources/app.asar`, and cleanly roll back dashboard-managed flags on `uninstall` or `--panel-only`.
+- Add `python[3] manage.py launch` across Windows, Linux and macOS to launch Antigravity Desktop with the required loopback CDP flags, and self-heal overwritten launch entry points from the active sidecar runtime (including after host auto-updates or in-app plugin updates).
+- Surface structured `debug-port-disabled` diagnostics (`reason`, `hostVersion`, `launchConfigured`) in `integration-state.json`, `manage.py status`, and localized English / Simplified Chinese / Traditional Chinese side-panel notices.
+
 ## 0.9.1 — 2026-11-17
 
 - Move the project's maintenance, release downloads and App update checks to `ATtacK030130/antigrative-dashboard`, while preserving the IDE extension identity (`you-should-know-me.antigrative-dashboard-ide`) and existing user data directories. Existing installations through `v0.8.20` should be updated manually once from the new repository; later App update checks use `ATtacK030130/antigrative-dashboard`.

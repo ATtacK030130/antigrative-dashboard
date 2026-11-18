@@ -7,16 +7,16 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.1](https://img.shields.io/badge/version-0.9.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.2](https://img.shields.io/badge/version-0.9.2-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.32.2](https://img.shields.io/badge/Antigravity-2.32.2-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.33.0](https://img.shields.io/badge/Antigravity-2.33.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [看看效果](#看看效果) · [IDE](#antigravity-ide) · [CLI](#antigravity-cli-状态栏) · [开始安装](#安装) · [启用与停用](#可插拔) · [兼容性](#兼容性) · [常见问题](#常见问题)
 
 </div>
 
-**v0.9.1：** 维护与 App 更新源迁至 `ATtacK030130/antigrative-dashboard`；新增像素猫 / 简约速度卡切换、额度消耗速率预测与周期实测用量参考、Token 用量「本机全部 / 当前账号」范围切换、以及宿主 Appearance 字体同步，已在 Antigravity Desktop 2.32.2 实机适配。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.1) · [兼容性](COMPATIBILITY.md)。
+**v0.9.2：** 适配 **Antigravity Desktop 2.33.0+**（新版将 `--remote-debugging-port` 改为显式开启）：`manage.py install` 与运行中的 sidecar 会在不改动 `resources/app.asar` 的前提下自动配置并自愈用户桌面/开始菜单快捷方式及 Linux `.desktop` 入口，并新增 `manage.py launch` 跨平台启动命令。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.2) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.1.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.2.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
@@ -89,11 +89,11 @@ Antigravity 扩展目前尚未兼容。详见 [IDE 安装、更新、诊断和�
 
 以下命令安装**桌面 App 适配器**；IDE 用户请使用[上方专用 VSIX 安装流程](#antigravity-ide)。
 
-适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 – 2.32.2 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。各平台完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 – 2.33.0 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。各平台完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
 
 Linux / macOS 使用 `python3 manage.py install` 或 `sh install.sh`，启停和卸载命令同样把 `python` 换成 `python3`。无需 sudo，不修改应用归档。
 
-> 模型选择旁的内嵌位置没有公开插件挂载接口。现在由标准 sidecar 通过已有本地渲染调试端口挂载控件，默认安装不再修改 `resources/app.asar`。未来宿主 DOM、调试通道、SDK 或统计接口改变时仍可能需要适配；原生侧面板作为备用入口。
+> 模型选择旁的内嵌位置没有公开插件挂载接口。插件由标准 sidecar 通过本地回环渲染调试端口挂载控件，不修改 `resources/app.asar`。从 **Antigravity Desktop 2.33.0** 起需显式开启调试端口：`manage.py install` 与运行中的 sidecar 会自动为 Windows 快捷方式和 Linux `.desktop` 写入 `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1`（并在 App 更新覆盖后自愈）；macOS 或自定义启动可使用 `python3 manage.py launch`。原生侧面板在任何启动方式下均可用。
 
 ### 手动安装
 
@@ -156,11 +156,12 @@ python manage.py install
 
 | 操作 | 命令 | 行为 |
 | --- | --- | --- |
-| 安装 / 更新插件 | `python manage.py install` | 复制运行时适配器，保留其他配置和历史统计 |
+| 安装 / 更新插件 | `python manage.py install` | 复制运行时适配器，配置用户启动入口调试参数，保留其他配置和历史统计 |
+| 带调试端口启动 | `python manage.py launch` | 带 `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` 启动 Antigravity |
 | 停用 | `python manage.py disable` | 关闭插件，缩略条在下一次轮询隐藏 |
 | 启用 | `python manage.py enable` | 启动插件并重新显示控件 |
-| 查看状态 | `python manage.py status` | 检查安装、开关和控件连接健康状态 |
-| 卸载 | `python manage.py uninstall` | 移除本插件目录，保留历史统计与旧版备份 |
+| 查看状态 | `python manage.py status` | 检查安装、开关、宿主调试参数与控件连接健康状态 |
+| 卸载 | `python manage.py uninstall` | 移除本插件目录，撤回插件写入的启动参数并保留历史统计与备份 |
 
 首次安装、更新插件代码或卸载之后需要完整重启 App。启停开关不需要重装或再次修改归档。`./uninstall.ps1` 等同于卸载命令。
 
@@ -236,7 +237,7 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 ## 兼容性
 
-当前实机验证：**Windows 11 / Antigravity App 2.32.2**（以及早期 2.21.1、2.22.0、2.28.x 版本），真实上下文读取、额度预测、像素猫速度卡和合并悬浮卡均已验证。Linux/macOS 的完整登录界面仍需用户实机验证，自动化覆盖范围见兼容性文档。
+当前实机验证：**Windows 11 / Antigravity App 2.33.0**（以及早期 2.21.1 – 2.32.2 版本），真实上下文读取、额度预测、像素猫速度卡和合并悬浮卡均已验证。Linux/macOS 的完整登录界面仍需用户实机验证，自动化覆盖范围见兼容性文档。
 
 独立 Antigravity IDE 2.5.5 和 2.6.0 提供单独 VSIX，Windows 已实机验证。其他编辑器扩展和 DSH 暂不支持。Linux/macOS 桌面版已适配原生路径、后台发现和 shell 安装器；IDE 有自动化覆盖，完整登录界面仍待实机验收，详见兼容性文档。
 参考 DSH Rail Music 的项目组织与文档风格，但安装接口不同，不能使用 `dsh plugin add` 安装 Antigrative Dashboard。

@@ -150,9 +150,9 @@ export function makeRendererSource(i18n, widget, theme = '', owner = null, gener
 
 export class RuntimeUi {
   constructor({ snapshot, source, profile = platformPaths().profile,
-    dataDir, preferences, updater=null, owner=null, owns=async()=>true, enabled = async () => true, discover = discoverTargets, targetOrigin = target => new URL(target.url).origin, sourceForTarget = () => source, connect = (url, options) => new CdpConnection(url, options), interval = 3000 } = {}) {
+    dataDir, preferences, updater=null, owner=null, owns=async()=>true, enabled = async () => true, discover = discoverTargets, diagnoseError = null, onTargets = null, targetOrigin = target => new URL(target.url).origin, sourceForTarget = () => source, connect = (url, options) => new CdpConnection(url, options), interval = 3000 } = {}) {
     this.snapshot = snapshot; this.source = source; this.profile = profile; this.dataDir = dataDir; this.enabled = enabled;
-    this.discover = discover; this.connect = connect; this.interval = interval; this.sessions = new Map(); this.running = false;
+    this.discover = discover; this.diagnoseError = diagnoseError; this.onTargets = onTargets; this.connect = connect; this.interval = interval; this.sessions = new Map(); this.running = false;
     this.targetOrigin=targetOrigin;
     this.sourceForTarget=sourceForTarget;
     this.health = { state: 'waiting', mode: 'runtime', message: 'Waiting for the app renderer', windows: 0 };
@@ -162,8 +162,10 @@ export class RuntimeUi {
     this.binding=owner?BINDING+'_'+owner.replaceAll('-',''):BINDING;
     this.rendererTheme={};
   }
-  async setHealth(state, message) {
-    this.health = { state, mode: 'runtime', message, windows: this.sessions.size, checkedAt: new Date().toISOString() };
+  async setHealth(state, message, extra = {}) {
+    const allowed = {};
+    for (const key of ['reason', 'hostVersion', 'launchConfigured']) if (extra && extra[key] !== undefined) allowed[key] = extra[key];
+    this.health = { state, mode: 'runtime', message, windows: this.sessions.size, ...allowed, checkedAt: new Date().toISOString() };
     if (this.dataDir&&await this.owns()) { try { await mkdir(this.dataDir, { recursive: true }); await writeFile(join(this.dataDir, 'integration-state.json'), JSON.stringify(this.health)); } catch { /* Read-only state reporting must not crash collection. */ } }
   }
   async event(connection, message) {
@@ -281,6 +283,7 @@ export class RuntimeUi {
       if(!await this.owns()){await this.detachAll();return;}
       if (!await this.enabled()) { await this.detachAll(); await this.setHealth('disabled', 'Dashboard is disabled'); return; }
       const targets = await this.discover(this.profile), active = new Set(targets.map(t => t.webSocketDebuggerUrl));
+      this.onTargets?.(targets);
       if (this.stopping||!await this.owns()) return;
       for (const [url, connection] of this.sessions) if (!active.has(url) || connection.closed || connection.revoked) { await this.detach(connection); this.sessions.delete(url); }
       for (const target of targets) {
@@ -333,7 +336,19 @@ export class RuntimeUi {
       const mounted=[...this.sessions.values()].some(c=>c.mounted);
       await this.setHealth(mounted ? 'mounted' : this.sessions.size ? 'waiting-for-composer' : 'waiting',
         mounted ? 'Dashboard attached to the conversation composer' : this.sessions.size ? 'Renderer connected; waiting for a conversation composer if needed' : 'Waiting for the app renderer');
-    } catch { await this.setHealth('reconnecting', 'Inline connection unavailable; the side panel remains available. Retrying automatically.'); }
+    } catch (error) {
+      let message = 'Inline connection unavailable; the side panel remains available. Retrying automatically.', extra = {};
+      if (this.diagnoseError) {
+        try {
+          const detail = await this.diagnoseError(error);
+          if (detail && typeof detail === 'object') {
+            if (typeof detail.message === 'string' && detail.message) message = detail.message;
+            extra = detail;
+          }
+        } catch {}
+      }
+      await this.setHealth('reconnecting', message, extra);
+    }
     finally { this.busy = false; }
   }
   async detach(connection) {

@@ -91,7 +91,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
   const id = '11111111-1111-1111-1111-111111111111';
   let prefs = { language: 'zh-CN', languageGuideDismissed: true, usageGuideDismissed: true, usageScope: 'local', revision: 1 };
   let panelTheme = { fontFamily: "'Fira Code'", mode: 'dark', dark: { background: '#1e1e1e' } };
-  let signedIn = true, slowFullPoll = false, stressModels = false, billionSpeed = false, usageOnlyCalls = 0;
+  let signedIn = true, slowFullPoll = false, stressModels = false, billionSpeed = false, usageOnlyCalls = 0, integrationState = null;
   const reset5h = new Date(Date.now() + 3 * 3600000).toISOString();
   const resetWk = new Date(Date.now() + 5 * 86400000).toISOString();
   const stressModelList = [
@@ -165,6 +165,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
     quotaUpdatedAt: new Date().toISOString(),
     groups: [{ id: 'gemini', name: 'Gemini', windows: { '5h': { available: true, remaining: 0.874, resetAt: reset5h }, weekly: { available: true, remaining: 0.399, resetAt: resetWk } } }],
     usage: usageData(overrideScope),
+    ...(integrationState ? { integration: integrationState } : {}),
     speed: trajectoryMetrics({ trajectory: { cascadeId: id, steps: [{ type: 'USER_INPUT' }], generatorMetadata: [{ chatModel: { modelDisplayName: 'Gemini 4 Hydrogen (XHigh)', chatStartMetadata: { contextWindowMetadata: { estimatedTokensUsed: 100000, maxContextTokens: 512000 } }, usage: billionSpeed ? { messageId: 'm2', inputTokens: '80000000', cacheReadTokens: '1150000000', outputTokens: '4567890', responseOutputTokens: '4000000', apiProvider: 'API_PROVIDER_GOOGLE_GEMINI' } : { messageId: 'm1', inputTokens: '5384106', cacheReadTokens: '55937971', outputTokens: '473719', responseOutputTokens: '400000', apiProvider: 'API_PROVIDER_GOOGLE_GEMINI' }, streamingDuration: '2s' } }] } }),
   });
   const inlineHtml = `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -655,6 +656,35 @@ test('font sync, scope switching and quota window reference render end-to-end in
     cacheRead: '1.15B',
     cacheReadTitle: '缓存读取: 1,150,000,000 toks',
   });
+
+  // Verify #integration-note localization for debug-port-disabled and mounted cleanup
+  integrationState = { state: 'reconnecting', reason: 'debug-port-disabled', hostVersion: '2.33.0', launchConfigured: true };
+  await evalJs(`() => document.getElementById('refresh-button').click()`);
+  await waitUntil(`() => document.getElementById('integration-note').textContent.includes('已自动配置启动入口')`, 'zh-CN debugPortReady note');
+
+  await evalJs(`() => {
+    document.getElementById('language-toggle').click();
+    document.querySelector('[data-language-menu] [data-language="en"]').click();
+  }`);
+  await waitUntil(`() => document.getElementById('integration-note').textContent.includes('launch shortcut configured')`, 'en debugPortReady note');
+
+  await evalJs(`() => {
+    document.getElementById('language-toggle').click();
+    document.querySelector('[data-language-menu] [data-language="zh-TW"]').click();
+  }`);
+  await waitUntil(`() => document.getElementById('integration-note').textContent.includes('已自動設定啟動捷徑')`, 'zh-TW debugPortReady note');
+
+  integrationState = { state: 'reconnecting', reason: 'debug-port-disabled', hostVersion: '2.33.0', launchConfigured: false };
+  await evalJs(`() => document.getElementById('refresh-button').click()`);
+  await waitUntil(`() => document.getElementById('integration-note').textContent.includes('python3 manage.py launch')`, 'zh-TW debugPortManual note');
+
+  integrationState = { state: 'reconnecting' };
+  await evalJs(`() => document.getElementById('refresh-button').click()`);
+  await waitUntil(`() => document.getElementById('integration-note').textContent.includes('內嵌狀態列正在自動重新連線')`, 'zh-TW generic reconnecting note');
+
+  integrationState = { state: 'mounted' };
+  await evalJs(`() => document.getElementById('refresh-button').click()`);
+  await waitUntil(`() => document.getElementById('integration-note').textContent === ''`, 'mounted clears integration-note');
   } finally {
     try { cdp?.close(); } catch {}
     killBrowser(child);

@@ -363,8 +363,9 @@ function render() {
   $('health-note').textContent = (collectionProcessing?t('collectionProcessingReason'):collectionLimited?t('collectionReason'):language.errorMessage(snapshot.error||snapshot.sessionError)) || (timestamp ? t('health',{time:timestamp}) : t('firstUpdate'));
   $('health-note').classList.toggle('warning', snapshot.connection !== 'live' || !!snapshot.sessionError || collectionLimited);
   const integration = snapshot.integration;
-  $('integration-note').textContent = integration && !['mounted','disabled'].includes(integration.state)
-    ? (language.language === 'zh-TW' ? '內嵌狀態列正在自動重新連線；此面板仍可檢視統計資料。' : (language.language === 'zh-CN' ? '内嵌栏正在自动重连；此面板仍可查看统计。' : 'Inline widget is reconnecting automatically; statistics remain available in this panel.')) : '';
+  const integrationKey = !integration || ['mounted','disabled'].includes(integration.state) ? ''
+    : integration.reason === 'debug-port-disabled' ? (integration.launchConfigured ? 'panelDebugPortReady' : 'panelDebugPortManual') : 'panelInlineReconnecting';
+  $('integration-note').textContent = integrationKey ? t(integrationKey) : '';
   updateCountdowns();
 }
 
