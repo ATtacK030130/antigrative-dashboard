@@ -31,7 +31,7 @@ export class TrajectoryReader {
   }
   const s=this.summaries[id];if(!s)throw new Error('会话暂时没有可用统计');return s;
  }
- async read(id,{summary:provided,force=false,isCurrent=()=>true}={}){
+ async read(id,{summary:provided,force=false,isCurrent=()=>true,cache=true}={}){
   if(!isCurrent())throw unavailable();
   if(this.isBackgroundManaged?.(id))throw this.failures.get(id)?.error||new Error('会话统计正在后台处理');
   const endpoint=await this.client.discover();
@@ -114,9 +114,13 @@ export class TrajectoryReader {
    // Do not cache or persist a mixed/incomplete revision.
    if(generators.some(g=>(g.stepIndices||[]).some(i=>Number.isInteger(i)&&i>=steps.length)))throw new Error('会话仍在更新，请等待下一次刷新');
    const value={trajectory:{cascadeId:id,steps,generatorMetadata:generators},numTotalSteps:steps.length,numTotalGeneratorMetadata:generators.length,status:summary.status};
-   assertCurrent();this.cachedBytes-=entry.bytes;entry.bytes=bytes;this.cachedBytes+=bytes;
-   entry.data=value;entry.summary=summary;entry.mark=mark;entry.verifiedAt=this.client.now();this.entries.delete(id);this.entries.set(id,entry);
-   this.failures.delete(id);this.trim(id);
+   assertCurrent();
+   if(cache||old){
+    this.cachedBytes-=entry.bytes;entry.bytes=bytes;this.cachedBytes+=bytes;
+    entry.data=value;entry.summary=summary;entry.mark=mark;entry.verifiedAt=this.client.now();this.entries.delete(id);this.entries.set(id,entry);
+    this.trim(id);
+   }
+   this.failures.delete(id);
    return value;
   })().catch(error=>{
    if(current()&&attempted&&collectionFailure(error)){

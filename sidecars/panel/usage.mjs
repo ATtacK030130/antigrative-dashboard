@@ -1,6 +1,7 @@
 import {Worker} from 'node:worker_threads';
 // Local usage ledger. Never stores prompts, credentials or raw request IDs.
-import {readFile,writeFile,mkdir,rename,readdir,unlink,open,stat,lstat} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,rename,readdir,rm,unlink,open,stat,lstat} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {tokenCount,requestCacheMetrics} from './metrics.mjs';
@@ -394,13 +395,23 @@ export class DesktopUsage{
   }
   syncing=false;lastSync=0;status='waiting';missingConversations=0;confirmedMissingConversations=0;retryingConversations=0;scope=null;scopeEpoch=null;forceQueued=false;disposed=false;continuation=null;
   writeScope(){return this.store.identity||LOCAL_SCOPE;}
-  rememberDelegates(scope,id,raw){
+  recordDelegates(scope,children=[]){
     if(scope!==this.writeScope())return [];
     if(this.delegatedScope!==scope||this.delegatedEpoch!==this.store.epoch){this.delegatedCandidates.clear();this.delegatedScope=scope;this.delegatedEpoch=this.store.epoch;}
-    const children=delegatedIds(id,raw,this.store.client.reader?.summaries||{});
-    for(const child of children){if(this.delegatedCandidates.size>=this.maxMapEntries)break;this.delegatedCandidates.set(child,{id:child});}
+    const seen=new Set();
+    for(const child of children){
+      if(!GUID.test(child))continue;
+      const lower=child.toLowerCase();
+      if(seen.has(lower))continue;
+      seen.add(lower);
+      if(this.delegatedCandidates.size<this.maxMapEntries)this.delegatedCandidates.set(lower,{id:lower});
+    }
     while(this.delegatedCandidates.size>this.maxMapEntries)this.delegatedCandidates.delete(this.delegatedCandidates.keys().next().value);
-    return children;
+    return [...seen];
+  }
+  rememberDelegates(scope,id,raw){
+    if(scope!==this.writeScope())return [];
+    return this.recordDelegates(scope,delegatedIds(id,raw,this.store.client.reader?.summaries||{}));
   }
   capMap(map){while(map.size>this.maxMapEntries)map.delete(map.keys().next().value);}
   async ingest(scope,id,raw){
@@ -602,6 +613,66 @@ export class DesktopUsage{
     const state=this.liveStates.get(scope+':'+String(id).toLowerCase());
     if(state?.needsDisk&&state.backgroundRequested&&state.epoch===epoch&&this.liveRecoveryCurrent(state)){state.backgroundCommitted=true;this.scheduleLive(state,0);}
   }
+  openSqliteBatch(items,{isCurrent=()=>true}={}){
+    const ids=new Set(items.map(i=>i.id));
+    const cancel=new SharedArrayBuffer(4),flag=new Int32Array(cancel);
+    const stagingDir=join(tmpdir(),'ag-pulse-sqlite-'+randomUUID());
+    const results=new Map(),waiters=new Map();
+    let ended=false,worker=null,timer=null,exitPromise=Promise.resolve();
+    const settle=(id,value)=>{
+      results.set(id,value);
+      const wake=waiters.get(id);
+      if(wake){waiters.delete(id);wake(value);}
+    };
+    const failRemaining=()=>{
+      ended=true;
+      for(const id of ids)if(!results.has(id))settle(id,{id,status:'fallback'});
+    };
+    if(!items.length||isCurrent()!==true){
+      failRemaining();
+    }else{
+      try{
+        worker=new Worker(new URL('./usage-sqlite-worker.mjs',import.meta.url),{
+          workerData:{items,stagingDir,maxRows:this.liveMaxRows,maxBytes:this.liveMaxBytes,cancel},
+          resourceLimits:{maxOldGenerationSizeMb:64,maxYoungGenerationSizeMb:8},
+        });
+        timer=setInterval(()=>{if(isCurrent()!==true){Atomics.store(flag,0,1);void worker.terminate();}},100);
+        timer.unref?.();
+        exitPromise=new Promise(resolve=>{
+          worker.on('message',msg=>{
+            if(msg?.type==='item'&&msg.result?.id)settle(msg.result.id,msg.result);
+            else if(msg?.type==='done'||msg?.type==='error')failRemaining();
+          });
+          worker.on('error',()=>failRemaining());
+          worker.on('exit',()=>{clearInterval(timer);failRemaining();resolve();});
+        });
+      }catch{
+        clearInterval(timer);
+        failRemaining();
+      }
+    }
+    return {
+      has:id=>ids.has(id),
+      async take(id){
+        let value;
+        if(results.has(id))value=results.get(id);
+        else if(ended)return {id,status:'fallback'};
+        else value=await new Promise(resolve=>{waiters.set(id,resolve);});
+        results.delete(id);
+        return value;
+      },
+      async close(){
+        Atomics.store(flag,0,1);
+        clearInterval(timer);
+        if(worker)await worker.terminate().catch(()=>{});
+        await exitPromise;
+        failRemaining();
+        for(const v of results.values())if(v?.jobDb)await unlink(v.jobDb).catch(()=>{});
+        results.clear();
+        await rm(stagingDir,{recursive:true,force:true}).catch(()=>{});
+      },
+    };
+  }
   sync(forceFull=false){
     if(this.disposed||!this.owns())return Promise.resolve();
     if(forceFull)this.forceQueued=true;
@@ -669,73 +740,140 @@ export class DesktopUsage{
       return time(b)-time(a);
     });
     const selected=completePass?ordered:ordered.slice(0,this.maxCandidates);
-    const started=this.now();let processed=0,more=false,dirty=false,partial=!completePass&&ordered.length>selected.length;
-    for(const c of selected){
-      if(!current())return {current};
-      // Always consume one queued entry, even if the event loop was suspended
-      // past the slice budget before its first read. Every continuation advances.
-      if(processed&&(processed>=this.maxCandidatesPerSlice||this.now()-started>=this.maxPassMs)){more=completePass;partial=partial||completePass;break;}
-      const key=hash(c.id),s=c.listed,mark=JSON.stringify([s?.stepCount,s?.modifiedAt,s?.status,s?.lastUserInputStepIndex]);
+    const candidateMeta=cand=>{
+      const key=hash(cand.id),s=cand.listed,mark=JSON.stringify([s?.stepCount,s?.modifiedAt,s?.status,s?.lastUserInputStepIndex]);
       // Recheck older imports once: they could finish without discovering
       // delegated conversations that were absent from the host's top-level list.
-      const signature=hash('delegation-v1:'+c.id+':'+(c.signature||'')+mark),old=journal[key];
-      const unchanged=old?.signature===signature;
-      const forced=this.fullRemaining.has(c.id);
-      if(!forced&&this.passSeen.has(c.id))continue;
-      if(!forced&&unchanged&&old?.state==='retry'&&old.retryAt>this.now()){this.passFailures.add(c.id);continue;}
-      const cached=s&&this.fingerprints.get(c.id)===mark&&!/RUNNING/.test(s.status||'');
+      const signature=hash('delegation-v1:'+cand.id+':'+(cand.signature||'')+mark),old=journal[key];
+      const unchanged=old?.signature===signature,forced=this.fullRemaining.has(cand.id);
+      const cached=s&&this.fingerprints.get(cand.id)===mark&&!/RUNNING/.test(s.status||'');
       // A persisted checkpoint already verified both disk and host revision.
       // Restarting the collector alone must not force all settled chats to load.
       const settled=s?.modifiedAt&&/IDLE|DONE|COMPLETED|CANCELLED|CANCELED|STOPPED|FAILED|ERROR/.test(String(s.status||''));
-      if(!forced&&!old?.hasDelegates&&(c.signature?unchanged&&old.state==='complete'&&(!s||cached||settled):cached))continue;
-      if(processed&&this.now()-started>=this.sliceMs){more=completePass;break;}
-      processed++;
-      this.passSeen.add(c.id);this.capMap(this.passSeen);
-      this.fullRemaining.delete(c.id);
-      try{
-        const completed=this.store.sessions?.get(c.id),revision=JSON.stringify([s?.stepCount??null,s?.modifiedAt??s?.lastModifiedTime??null,s?.status??null,s?.lastUserInputStepIndex??null]);
-        if(s&&completed?.backgroundUsageComplete===true&&completed.backgroundRevision===revision){
-          const stable=!c.readSignature||await c.readSignature()===c.signature;if(!current())return {current};if(!stable)throw Error('History changed during import');
-          const children=(completed.data?.delegatedConversations||[]).filter(child=>conversationId(child)&&child!==c.id);
-          for(const child of children)if(!candidates.has(child)&&!this.passSeen.has(child)){
-            if(candidates.size>=this.maxMapEntries||completePass&&this.passSeen.size+this.fullRemaining.size>=this.maxMapEntries){missing++;break;}
-            candidates.set(child,{id:child});if(completePass)this.fullRemaining.set(child,{id:child});
-          }
-          this.fingerprints.set(c.id,mark);this.capMap(this.fingerprints);this.passFailures.delete(c.id);this.readFailures.delete(c.id);
-          if(this.host){journal[key]={signature,state:'complete',failures:0,retryAt:0,hasDelegates:children.length>0};dirty=true;}
-          await yieldToLiveRequests();continue;
-        }
-        // An independently discovered ID has no summary. An empty summary
-        // intentionally reads steps until EOF; the shared reader still enforces
-        // pagination, revision checks, memory budgets and a wall-time deadline.
-        const summary=s?{stepCount:s.stepCount,lastModifiedTime:s.modifiedAt,status:s.status,lastUserInputStepIndex:s.lastUserInputStepIndex}:{};
-        const raw=await this.store.client.trajectory(c.id,{summary,force:forced,isCurrent:current});
-        if(!current())return {current};
-        if(!raw?.trajectory||!Array.isArray(raw.trajectory.steps)||!Array.isArray(raw.trajectory.generatorMetadata))throw Error('Incomplete historical statistics');
-        if(!s&&!raw.trajectory.steps.length&&!raw.trajectory.generatorMetadata.length)throw Error('History not yet readable');
-        const children=this.rememberDelegates(scope,c.id,raw);
-        for(const id of children)if(!candidates.has(id)&&!this.passSeen.has(id)){
-          // Match the existing local-history discovery ceiling and keep an
-          // iterative map walk, so nested/shared/cyclic delegation cannot recurse.
-          if(candidates.size>=this.maxMapEntries||completePass&&this.passSeen.size+this.fullRemaining.size>=this.maxMapEntries){missing++;break;}
-          candidates.set(id,{id});if(completePass)this.fullRemaining.set(id,{id});
-        }
-        const stable=!c.readSignature||await c.readSignature()===c.signature;
-        if(!current())return {current};
-        if(!stable)throw Error('History changed during import');
-        await this.ingest(scope,c.id,raw);if(!current())return {current};
-        this.fingerprints.set(c.id,mark);this.capMap(this.fingerprints);
-        this.passFailures.delete(c.id);
-        this.readFailures.delete(c.id);
-        if(this.host){journal[key]={signature,state:'complete',failures:0,retryAt:0,hasDelegates:children.length>0};dirty=true;}
-      }catch{
-        if(!current())return {current};this.passFailures.add(c.id);
-        const remembered=this.readFailures.get(c.id),failures=Math.max(unchanged?old?.failures||0:0,remembered?.signature===signature?remembered.failures:0)+1;
-        this.readFailures.set(c.id,{signature,failures});this.capMap(this.readFailures);this.capMap(this.passFailures);
-        if(this.host){
-          journal[key]={signature,state:'retry',failures,retryAt:this.now()+Math.min(30*60000,30000*2**Math.min(failures-1,6))};dirty=true;}
+      const completeSkip=!forced&&!old?.hasDelegates&&(cand.signature?unchanged&&old.state==='complete'&&(!s||cached||settled):cached);
+      return {key,s,mark,signature,old,unchanged,forced,completeSkip};
+    };
+    const enqueueDelegates=children=>{
+      for(const child of children)if(!candidates.has(child)&&!this.passSeen.has(child)){
+        // Match the existing local-history discovery ceiling and keep an
+        // iterative map walk, so nested/shared/cyclic delegation cannot recurse.
+        if(candidates.size>=this.maxMapEntries||completePass&&this.passSeen.size+this.fullRemaining.size>=this.maxMapEntries){missing++;break;}
+        candidates.set(child,{id:child});if(completePass)this.fullRemaining.set(child,{id:child});
       }
-      await yieldToLiveRequests();
+    };
+    const markComplete=(id,key,signature,mark,hasDelegates)=>{
+      this.fingerprints.set(id,mark);this.capMap(this.fingerprints);
+      this.passFailures.delete(id);this.readFailures.delete(id);
+      if(this.host){journal[key]={signature,state:'complete',failures:0,retryAt:0,hasDelegates};dirty=true;}
+    };
+    const started=this.now();let processed=0,more=false,dirty=false,partial=!completePass&&ordered.length>selected.length;
+    const collectSqliteBatch=startIdx=>{
+      const items=[],limit=Math.max(1,this.maxCandidatesPerSlice-processed+1);
+      for(let j=startIdx;j<selected.length&&items.length<limit;j++){
+        const cand=selected[j],meta=candidateMeta(cand);
+        if(j!==startIdx){
+          if(!meta.forced&&this.passSeen.has(cand.id))continue;
+          if(!meta.forced&&meta.unchanged&&meta.old?.state==='retry')continue;
+          if(meta.completeSkip)continue;
+        }
+        const cs=cand.listed;
+        if(!cand.dbFile||/RUNNING|IN_PROGRESS/.test(String(cs?.status||'')))continue;
+        const comp=this.store.sessions?.get(cand.id),rev=JSON.stringify([cs?.stepCount??null,cs?.modifiedAt??cs?.lastModifiedTime??null,cs?.status??null,cs?.lastUserInputStepIndex??null]);
+        if(cs&&comp?.backgroundUsageComplete===true&&comp.backgroundRevision===rev)continue;
+        if(this.store.client.reader?.entries?.get(cand.id)?.data)continue;
+        items.push({id:cand.id,dbFile:cand.dbFile,...(Number.isSafeInteger(cs?.stepCount)?{expectedSteps:cs.stepCount}:{})});
+      }
+      return items;
+    };
+    let sqliteSession=null;
+    try{
+      for(let idx=0;idx<selected.length;idx++){
+        const c=selected[idx];
+        if(!current())return {current};
+        // Always consume one queued entry, even if the event loop was suspended
+        // past the slice budget before its first read. Every continuation advances.
+        if(processed&&(processed>=this.maxCandidatesPerSlice||this.now()-started>=this.maxPassMs)){more=completePass;partial=partial||completePass;break;}
+        const {key,s,mark,signature,old,unchanged,forced,completeSkip}=candidateMeta(c);
+        if(!forced&&this.passSeen.has(c.id))continue;
+        if(!forced&&unchanged&&old?.state==='retry'&&old.retryAt>this.now()){this.passFailures.add(c.id);continue;}
+        if(completeSkip)continue;
+        if(processed&&this.now()-started>=this.sliceMs){more=completePass;break;}
+        processed++;
+        this.passSeen.add(c.id);this.capMap(this.passSeen);
+        this.fullRemaining.delete(c.id);
+        try{
+          const completed=this.store.sessions?.get(c.id),revision=JSON.stringify([s?.stepCount??null,s?.modifiedAt??s?.lastModifiedTime??null,s?.status??null,s?.lastUserInputStepIndex??null]);
+          if(s&&completed?.backgroundUsageComplete===true&&completed.backgroundRevision===revision){
+            const stable=!c.readSignature||await c.readSignature()===c.signature;if(!current())return {current};if(!stable)throw Error('History changed during import');
+            const children=(completed.data?.delegatedConversations||[]).filter(child=>conversationId(child)&&child!==c.id);
+            enqueueDelegates(children);
+            markComplete(c.id,key,signature,mark,children.length>0);
+            await yieldToLiveRequests();continue;
+          }
+          // Unlisted brain-only directories without .db/.pb archives have no host
+          // history to query; checkpoint them instead of trapping them in retry.
+          if(!s&&c.hasArchive===false&&!this.delegatedCandidates.has(c.id)){
+            const stable=!c.readSignature||await c.readSignature()===c.signature;if(!current())return {current};if(!stable)throw Error('History changed during import');
+            markComplete(c.id,key,signature,mark,false);
+            await yieldToLiveRequests();continue;
+          }
+          let handled=false;
+          const running=/RUNNING|IN_PROGRESS/.test(String(s?.status||''));
+          const inReader=Boolean(this.store.client.reader?.entries?.get(c.id)?.data);
+          if(c.dbFile&&!running&&!inReader){
+            if(!sqliteSession||!sqliteSession.has(c.id)){
+              await sqliteSession?.close();
+              sqliteSession=this.openSqliteBatch(collectSqliteBatch(idx),{isCurrent:current});
+            }
+            const item=await sqliteSession.take(c.id);
+            if(!current())return {current};
+            if(item?.status==='error')throw Error('History exceeds SQLite read budget');
+            if(item?.status==='ok'||item?.status==='disk'){
+              try{
+                const stable=!c.readSignature||await c.readSignature()===c.signature;
+                if(!current())return {current};
+                if(!stable)throw Error('History changed during import');
+                const summaryChildren=delegatedIds(c.id,null,this.store.client.reader?.summaries||{});
+                const children=this.recordDelegates(scope,[...(item.delegatedIds||[]),...summaryChildren]);
+                enqueueDelegates(children);
+                if(item.status==='disk')await this.ledger.ingestDisk(scope,c.id,item.jobDb,{isCurrent:current});
+                else if(item.rows?.length)await this.ledger.ingestRows(scope,c.id,item.rows,{isCurrent:current});
+                if(!current())return {current};
+                markComplete(c.id,key,signature,mark,children.length>0);
+                handled=true;
+              }finally{
+                if(item.jobDb)await unlink(item.jobDb).catch(()=>{});
+              }
+            }
+          }
+          if(!handled){
+            // An independently discovered ID has no summary. An empty summary
+            // intentionally reads steps until EOF; the shared reader still enforces
+            // pagination, revision checks, memory budgets and a wall-time deadline.
+            const summary=s?{stepCount:s.stepCount,lastModifiedTime:s.modifiedAt,status:s.status,lastUserInputStepIndex:s.lastUserInputStepIndex}:{};
+            const raw=await this.store.client.trajectory(c.id,{summary,force:forced,isCurrent:current,cache:false});
+            if(!current())return {current};
+            if(!raw?.trajectory||!Array.isArray(raw.trajectory.steps)||!Array.isArray(raw.trajectory.generatorMetadata))throw Error('Incomplete historical statistics');
+            if(!s&&!raw.trajectory.steps.length&&!raw.trajectory.generatorMetadata.length)throw Error('History not yet readable');
+            const children=this.rememberDelegates(scope,c.id,raw);
+            enqueueDelegates(children);
+            const stable=!c.readSignature||await c.readSignature()===c.signature;
+            if(!current())return {current};
+            if(!stable)throw Error('History changed during import');
+            await this.ingest(scope,c.id,raw);if(!current())return {current};
+            markComplete(c.id,key,signature,mark,children.length>0);
+          }
+        }catch{
+          if(!current())return {current};this.passFailures.add(c.id);
+          const remembered=this.readFailures.get(c.id),failures=Math.max(unchanged?old?.failures||0:0,remembered?.signature===signature?remembered.failures:0)+1;
+          this.readFailures.set(c.id,{signature,failures});this.capMap(this.readFailures);this.capMap(this.passFailures);
+          if(this.host){
+            journal[key]={signature,state:'retry',failures,retryAt:this.now()+Math.min(30*60000,30000*2**Math.min(failures-1,6))};dirty=true;}
+        }
+        await yieldToLiveRequests();
+      }
+    }finally{
+      await sqliteSession?.close();
     }
     // Usage records remain atomic per conversation. A crash only revalidates
     // this bounded slice; do not rewrite the whole checkpoint after every ID.

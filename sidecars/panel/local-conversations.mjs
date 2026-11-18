@@ -1,4 +1,4 @@
-// Discover IDs only. Conversation bodies and SQLite contents are never read.
+// Discover IDs and local archive locations. SQLite contents are never read on the main thread.
 import {opendir,lstat} from 'node:fs/promises';
 import {homedir} from 'node:os';
 import {join} from 'node:path';
@@ -13,7 +13,7 @@ async function stamp(file,directory=false){
 export async function discoverLocalConversations({host,home=homedir(),limit=20000}={}){
  if(!['app','ide'].includes(host))throw Error('Explicit conversation host is required');
  const base=join(home,'.gemini',host==='ide'?'antigravity-ide':'antigravity');
- const files=new Map();let errors=0,visited=0;
+ const files=new Map(),pbFiles=new Map();let errors=0,visited=0;
  for(const [name,directory] of [['conversations',false],['brain',true]]){
   const root=join(base,name);
   try{
@@ -23,6 +23,11 @@ export async function discoverLocalConversations({host,home=homedir(),limit=2000
    for await(const entry of dir){
     if(++visited>limit)throw Error('Conversation discovery budget exceeded');
     if(entry.isSymbolicLink()||!(directory?entry.isDirectory():entry.isFile()))continue;
+    if(!directory&&entry.name.endsWith('.pb')){
+     const pbId=entry.name.slice(0,-3);
+     if(conversationId.test(pbId))pbFiles.set(pbId.toLowerCase(),join(root,entry.name));
+     continue;
+    }
     const id=directory?entry.name:entry.name.endsWith('.db')?entry.name.slice(0,-3):'';
     if(!conversationId.test(id))continue;
     const key=id.toLowerCase(),parts=files.get(key)||[];
@@ -33,15 +38,23 @@ export async function discoverLocalConversations({host,home=homedir(),limit=2000
  }
  const conversations=[];
  for(const [id,parts]of files){
+  const dbPart=parts.find(p=>!p.directory),dbFile=dbPart?.file||null;
+  const pbFile=!dbFile?pbFiles.get(id):null;
   const readSignature=async()=>{
    const values=[];
    for(const {file,directory}of parts){const value=await stamp(file,directory);if(value===null)return null;
     values.push([directory?'brain':'db',value]);
     if(!directory)values.push(['wal',await stamp(file+'-wal')]);
    }
+   if(pbFile){const pb=await stamp(pbFile,false);if(pb!==null)values.push(['pb',pb]);}
    return digest(JSON.stringify(values));
   };
-  try{const signature=await readSignature();if(signature)conversations.push({id,signature,readSignature});}
+  try{
+   const signature=await readSignature();
+   if(!signature)continue;
+   const hasArchive=Boolean(dbFile||(pbFile&&await stamp(pbFile,false)!==null));
+   conversations.push({id,signature,readSignature,hasArchive,...(dbFile?{dbFile}:{})});
+  }
   catch{errors++;}
  }
  return {conversations,errors};
