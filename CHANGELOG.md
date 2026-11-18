@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.5 — 2026-11-18
+
+- Switch historical Token usage backfill (`DesktopUsage` / `TrajectoryReader.readUsage`) to a metadata-only RPC channel (`GetCascadeTrajectoryGeneratorMetadata` with `includeMessages: false`), avoiding full `GetCascadeTrajectorySteps` (`verbosity: 3`) deserialization into host `language_server` memory and keeping foreground 8 MiB caches untouched (reading only bounded `[minStep..maxStep]` step slices on demand when `chatStartMetadata.createdAt` is absent). Skip unlisted orphan `brain/<id>` directories, mark settled (`>= 60s`) 0-request `.db` conversations as `complete` instead of retrying, pace slices (`1500ms` budget, up to `8` candidates/slice, `80ms` inter-item pause, `1200ms` continuation delay), and coalesce/throttle `UsageLedger.summary()` JSON scans during active sync.
+- Reduce idle and startup memory footprint across the App sidecar and standalone IDE: cap collector main-process V8 old-space heap (`--max-old-space-size=192` in `sidecars/panel/sidecar.json` and `ide/extension.cjs`), share `GetAllCascadeTrajectories` summary caches between `Store` and `TrajectoryReader` with adaptive settled TTLs (`12s–15s` idle vs `1.8s` active) rather than re-fetching full trajectory lists every `2.2s` poll, renew healthy HTTP 200 discovery leases without `15s` `ps`/`lsof` respawns, bound `language_server.log` discovery reads to `256 KiB` backward tail chunks (`readLogTail`), and extract bundled SDK files via `2 MiB` chunked binary scans (`extractBundledSdkFromFile`) instead of reading full 150–200 MB host binaries into memory.
+
 ## 0.9.4 — 2026-11-18
 
 - Harden `sidecars/panel/tests/ui-browser.test.mjs` against parallel Windows CI timeouts and orphan-browser hangs: guarantee headless Chromium/Edge child-process and `stderr` pipe cleanup when `launchBrowser` fails, raise the test `CdpConnection` timeout (`5s` → `30s`), relax 16-model stress render wait (`8s` → `20s`), and measure optimistic scope-switch latency in-page (`performance.now()`) rather than Node↔Edge WebSocket IPC wall time.

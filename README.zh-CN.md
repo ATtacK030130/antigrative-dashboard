@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.4](https://img.shields.io/badge/version-0.9.4-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.5](https://img.shields.io/badge/version-0.9.5-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.33.0](https://img.shields.io/badge/Antigravity-2.33.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.4：** 适配 **Antigravity Desktop 2.33.0+**（新版将 `--remote-debugging-port` 改为显式开启）：`manage.py install` 与运行中的 sidecar 会在不改动 `resources/app.asar` 的前提下自动配置并自愈用户桌面/开始菜单快捷方式及 Linux `.desktop` 入口，并新增 `manage.py launch` 跨平台启动命令。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.4) · [兼容性](COMPATIBILITY.md)。
+**v0.9.5：** 面向数百个历史会话场景大幅降低 `language_server` 与 sidecar 内存占用（历史补录改用仅元数据轻量通道、过滤孤儿 `brain/<id>`、共享稳态摘要缓存、有界日志尾部扫描与分块 SDK 提取，并为主进程添加 192 MiB V8 堆上限）；继续适配 **Antigravity Desktop 2.33.0+**（不改动 `resources/app.asar` 自动配置并自愈用户快捷方式 / `.desktop` 调试参数，及 `manage.py launch` 启动命令）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.5) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.4.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.5.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
