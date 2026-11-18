@@ -29,14 +29,14 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-11-01 / **v0.8.17（Issue #27）**：Windows App 与 IDE 共用本机端口发现，排除 TUN 产生的伪监听行；备用查询兼容报告中的 `State: 0`，同时验证 PID、环回／通配地址、未连接远端及有效端口，拒绝 `Bound`、`Closed` 等状态。HTTP 日志与 renderer 端口只作为补查提示，不能代替进程归属证明；最新端口缺失时，不再被其他监听端口或复用的旧端口掩盖。正常路径保留 netstat，异常路径一次批量 PowerShell 查询，沿用超时、输出上限及客户端退避。本地合成回归与真实 Windows netstat／CIM 检查通过，已安装代码成功发现 App 接口并取得 `GetUserStatus` 响应；宿主停在登录引导页，未完成登录后控件验收。报告者的 TUN `State: 0` 原始环境仍需其复测。
 
-2026-11-18 / **v0.9.2**：适配 **Antigravity Desktop 2.33.0+**。从 `2.33.0` 起，桌面宿主默认不再开启 `--remote-debugging-port`，未传该参数时会调用 `removeStaleActivePortFile` 删除 `DevToolsActivePort`。为在不修改 `resources/app.asar`、保留签名与跨更新稳定性的前提下恢复内嵌状态条：
+2026-11-18 / **v0.9.3（含 v0.9.2）**：适配 **Antigravity Desktop 2.33.0+**。从 `2.33.0` 起，桌面宿主默认不再开启 `--remote-debugging-port`，未传该参数时会调用 `removeStaleActivePortFile` 删除 `DevToolsActivePort`。为在不修改 `resources/app.asar`、保留签名与跨更新稳定性的前提下恢复内嵌状态条：
 - `manage.py install`（Windows `.lnk` 快捷方式、Linux `~/.local/share/applications/antigravity.desktop`）与运行中 sidecar 会自动为用户自有启动入口配置 `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1`，并在宿主自动升级覆盖快捷方式或插件在线更新后自动自愈；`manage.py uninstall` 与 `--panel-only` 仅撤回插件记录的启动参数或受管 `.desktop` 覆盖文件。
 - 新增 `python[3] manage.py launch`（支持 `--exe` / `--workspace` / `--app-path`），适用于 macOS 或自定义启动方式。
 - `manage.py status`、`integration-state.json` 与侧边面板同步报告 `hostVersion`、`hostRequiresDebugFlag`、`launchConfiguration` 及 `reason: "debug-port-disabled"` 诊断。已在 Windows 11 本机 **Antigravity Desktop 2.33.0** 实机验证挂载与连接。
 
 2026-11-17 / **v0.9.1**：项目维护与 App 更新源迁移至 `ATtacK030130/antigrative-dashboard`（保留原有 IDE 扩展标识 `you-should-know-me.antigrative-dashboard-ide` 与本地数据目录）。新增像素猫 / 简约速度卡样式切换、额度消耗速率状态与重置前余量线性预测、当前额度周期实测用量参考、Token 用量「本机全部 / 当前账号」范围切换、以及跟随宿主 Appearance 字体的 `--pulse-font` / `--pulse-font-mono` 同步。已在 Windows 11 本机 **Antigravity Desktop 2.32.2** 通过宿主资源/SDK 检查与插件挂载（`v0.9.1`），并完成 Node 482/483（1 skip）、IDE 67/67、Python 95/95（1 skip）及 Edge CDP 端到端浏览器测试。
 
-专用包为 `antigrative-dashboard-ide-0.9.1.vsix`，安装入口与桌面 App 独立。
+专用包为 `antigrative-dashboard-ide-0.9.3.vsix`，安装入口与桌面 App 独立。
 Windows 11 / IDE 2.5.5（VS Code base 1.107.0）已用真实对话验证速率、缓存、上下文、重启历史恢复和窄宽布局。IDE 2.6.0 的控件挂载和真实对话数据已由用户验收；Linux/macOS 的登录后 IDE 界面仍待实机验证。
 Linux/macOS 的 IDE 进程筛选、端口归属、安装打包和 Trusted Types 浏览器 fixture 纳入 CI；登录后的 IDE GUI 仍待实机验收。
 当前仅支持默认用户 profile；私有 Preact/DOM 或 RPC 变化可能需要适配，不能保证未来 IDE 版本无需维护。
