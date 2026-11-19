@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.6 — 2026-11-19
+
+- Add managed macOS launcher wrapper support for **Antigravity Desktop 2.33.0+**: `manage.py install` and the active sidecar runtime now create and self-heal `~/Applications/Antigravity (Dashboard).app` (preserving the signed `/Applications/Antigravity.app` bundle untouched, copying its icon, setting `LSUIElement`, and prompting to quit & relaunch if Antigravity is already running without remote debugging) so macOS users can launch from Spotlight or Dock without running terminal commands; `uninstall` and `--panel-only` cleanly remove only dashboard-managed wrappers.
+- Enhance `manage.py launch` (and add a standalone installed helper at `~/.gemini/config/plugins/antigravity-pulse/compat/launch_config.py launch`): detect running macOS instances without an active `DevToolsActivePort` to avoid silent single-instance no-ops, add `--restart` to gracefully quit via AppleScript before relaunching, prefer `/usr/bin/open -a` for `.app` bundles, and automatically reuse saved `appResources` / `profile` settings in `launch` and `status`.
+
 ## 0.9.5 — 2026-11-18
 
 - Switch historical Token usage backfill (`DesktopUsage` / `TrajectoryReader.readUsage`) to a metadata-only RPC channel (`GetCascadeTrajectoryGeneratorMetadata` with `includeMessages: false`), avoiding full `GetCascadeTrajectorySteps` (`verbosity: 3`) deserialization into host `language_server` memory and keeping foreground 8 MiB caches untouched (reading only bounded `[minStep..maxStep]` step slices on demand when `chatStartMetadata.createdAt` is absent). Skip unlisted orphan `brain/<id>` directories, mark settled (`>= 60s`) 0-request `.db` conversations as `complete` instead of retrying, pace slices (`1500ms` budget, up to `8` candidates/slice, `80ms` inter-item pause, `1200ms` continuation delay), and coalesce/throttle `UsageLedger.summary()` JSON scans during active sync.

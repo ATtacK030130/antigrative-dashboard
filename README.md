@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for pace forecasts, window usage and five-hour / weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.9.5](https://img.shields.io/badge/version-0.9.5-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.6](https://img.shields.io/badge/version-0.9.6-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.33.0](https://img.shields.io/badge/Antigravity-2.33.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.9.5:** Significantly reduces `language_server` and sidecar memory footprint on large local conversation histories via metadata-only historical usage backfill, orphan `brain/<id>` filtering, shared idle summary caching, bounded log/SDK reads, and a 192 MiB V8 heap cap; retains **Antigravity Desktop 2.33.0+** opt-in loopback remote-debugging setup (`manage.py install` shortcut self-healing without editing `resources/app.asar` and `manage.py launch` across Windows, Linux and macOS). [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.5) · [Compatibility](COMPATIBILITY.md).
+**v0.9.6:** Completes **macOS Antigravity Desktop 2.33.0+** launch ergonomics with a managed user-owned `~/Applications/Antigravity (Dashboard).app` wrapper (preserving the signed host bundle untouched, ready for Spotlight/Dock, with native Quit & Relaunch prompt), plus `manage.py launch --restart`, macOS running-instance detection, saved path reuse, and all v0.9.5 memory/backfill optimizations. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.6) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.9.5.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.9.6.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with
