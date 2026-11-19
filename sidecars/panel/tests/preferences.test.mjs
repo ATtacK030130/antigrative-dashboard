@@ -176,3 +176,29 @@ test('neonMascot defaults off without altering legacy keys, persists independent
   fail=true;await ctrl.choose('off');assert.equal(ctrl.enabled,false);assert.equal(ctrl.error,true);
   ctrl.dispose();
 });
+
+test('contextLimitOverride defaults to auto without altering legacy keys, persists presets/custom limits and validates inputs',async t=>{
+  const {file,store}=await fixture(t);
+  const language=create(null);
+  assert.equal(language.normalizeContextLimitOverride(undefined),'auto');
+  assert.equal(language.normalizeContextLimitOverride('invalid'),'auto');
+  assert.equal(language.contextLimitTokens('auto'),0);
+  assert.equal(language.contextLimitTokens('512k'),512000);
+  assert.equal(language.contextLimitTokens('1m'),1000000);
+  await writeFile(file,JSON.stringify({schema:1,language:'en',revision:1}));
+  assert.equal((await store.get()).contextLimitOverride,undefined);
+  await store.set({contextLimitOverride:'600k'});
+  assert.equal((await new PreferencesStore({file}).get()).contextLimitOverride,'600000');
+  await store.set({contextLimitOverride:'1m'});
+  assert.equal((await new PreferencesStore({file}).get()).contextLimitOverride,'1000000');
+  await store.set({contextLimitOverride:'auto'});
+  assert.equal((await store.get()).contextLimitOverride,'auto');
+  for(const bad of ['10k','9999999','abc',true,null,-1])await assert.rejects(store.set({contextLimitOverride:bad}));
+  let revision=1,fail=false;
+  const ctrl=language.connectContextLimit({initial:null,write:async input=>{if(fail)throw Error('io');return {language:null,contextLimitOverride:input.contextLimitOverride,revision:++revision};}});
+  assert.equal(ctrl.value,'auto');assert.equal(ctrl.tokens,0);
+  await ctrl.choose('600k');assert.equal(ctrl.value,'600000');assert.equal(ctrl.tokens,600000);assert.equal(ctrl.error,false);
+  ctrl.sync({language:null,contextLimitOverride:'auto',revision:1});assert.equal(ctrl.value,'600000');
+  fail=true;await ctrl.choose('512k');assert.equal(ctrl.value,'512k');assert.equal(ctrl.error,true);
+  ctrl.dispose();
+});

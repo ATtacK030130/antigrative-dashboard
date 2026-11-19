@@ -78,8 +78,15 @@
         <dl class="stats-grid cache-stats"><div id="cache-read-cell"><dt data-i18n="cacheRead">Cache read</dt><dd><strong id="cache-read">—</strong><span class="stat-unit" id="cache-read-unit" hidden> toks</span></dd></div><div id="cache-miss-cell"><dt data-i18n="cacheMiss">Uncached input</dt><dd><strong id="cache-miss">—</strong><span class="stat-unit" id="cache-miss-unit" hidden> toks</span></dd></div><div id="cache-output-cell"><dt data-i18n="cacheOutput">Output</dt><dd><strong id="cache-output">—</strong><span class="stat-unit" id="cache-output-unit" hidden> toks</span></dd></div><div class="span-row" id="cache-write-row" hidden><dt data-i18n="cacheWrite">Cache write</dt><dd id="cache-write">—</dd></div><div class="span-row" id="task-own-row" hidden><dt data-i18n="taskOwn">Current agent</dt><dd id="task-own">—</dd></div><div class="span-row" id="task-subagents-row" hidden><dt id="task-subagents-label"></dt><dd id="task-subagents">—</dd></div></dl><p class="card-footnote" id="cache-note" hidden></p>
       </article>
       <article class="detail-card" id="context-card" role="tabpanel" tabindex="0" aria-labelledby="context-tab" hidden>
-        <div class="card-heading"><span><svg class="icon"><use href="#gauge"/></svg><span data-i18n="context">Context window</span></span><span class="card-tag" id="context-model">—</span></div>
-        <div class="context-hero-row"><strong id="context-summary">—</strong><span id="context-tokens">—</span></div>
+        <div class="card-heading"><span><svg class="icon"><use href="#gauge"/></svg><span data-i18n="context">Context window</span></span><span class="context-head-meta"><button type="button" class="context-limit-badge" id="context-limit-badge">—</button><button type="button" class="context-limit-badge context-custom-trigger" id="context-limit-custom-btn" aria-expanded="false">✎</button><span class="card-tag" id="context-model">—</span></span></div>
+        <div class="context-hero-row"><strong id="context-summary">—</strong><span class="context-hero-meta"><span class="context-compaction-pill" id="context-compaction-pill" hidden></span><span id="context-tokens">—</span></span></div>
+        <div class="context-preview-alert" id="context-preview-alert" hidden></div>
+        <div class="context-limit-editor" id="context-limit-editor" hidden>
+          <input type="text" id="context-limit-input" class="context-limit-input" inputmode="text" autocomplete="off" spellcheck="false">
+          <button type="button" class="context-limit-save" id="context-limit-apply" data-i18n="contextCustomApply">Apply</button>
+          <button type="button" class="context-limit-reset" id="context-limit-auto" data-i18n="contextLimitAuto">Auto</button>
+          <div class="context-limit-err" id="context-limit-err" hidden></div>
+        </div>
         <div class="quota-track" role="progressbar" data-i18n-aria="context" id="context-track"><i id="context-fill"></i></div>
         <div class="quota-spotlight-head" id="panel-active-group"><i class="spot-dot" aria-hidden="true"></i><strong class="spot-name" id="panel-group-name">—</strong><span class="pace-badge" id="panel-quota-pace" hidden><i class="pace-dot" aria-hidden="true"></i><span id="panel-quota-pace-text"></span></span></div>
         <div class="quota-details">
