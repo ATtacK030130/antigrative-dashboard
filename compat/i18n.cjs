@@ -19,7 +19,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       strip:'Antigrative Dashboard statistics',session:'Session statistics',cache:'Cache hit',cacheTitle:'Token usage',five:'Five-hour quota',week:'Weekly quota',weekShort:'Wk',
       modelTime:'Model time',toolTime:'Tool time',ttft:'Average TTFT',ttftShort:'TTFT',latestSpeed:'Latest speed',sessionAvg:'Session avg',peakSpeed:'Peak',basisShortResponse:'Response',basisShortAll:'Output',sessionTps:'Session TPS',latest:'Last request',tokens:'Response / thinking',remaining:'remaining',
       resetIn:'Resets in',resetTime:'Reset time (UTC+8)',group:'Quota group',selectGroup:'Select quota group',refresh:'Refresh quota',refreshStats:'Refresh statistics',refreshing:'Refreshing…',
-      speedStyle:'Speed card style',styleMinimal:'Minimal',styleCat:'Pixel cat',styleSaveFailed:'Style could not be saved. Try again.',outlookOk:'Comfortable',outlookTight:'Tight',outlookExhaust:'Runs out early',paceIdle:'Unused',forecastLeft:'~{pct} left at reset',forecastDepletes:'Runs out in ~{eta}, {early} before reset',forecastWarming:'Used {pct} · warming up',forecastBasis:'{remaining} quota left · {time} of the window left · linear projection from this window\'s average usage',
+      speedStyle:'Speed card style',styleMinimal:'Minimal',styleCat:'Pixel cat',styleSaveFailed:'Style could not be saved. Try again.',neonMascot:'Neon',neonMascotOn:'Neon mascot: On (click to turn off)',neonMascotOff:'Neon mascot: Off (click to enable Easter egg)',neonSaveFailed:'Neon mascot preference could not be saved. Try again.',outlookOk:'Comfortable',outlookTight:'Tight',outlookExhaust:'Runs out early',paceIdle:'Unused',forecastLeft:'~{pct} left at reset',forecastDepletes:'Runs out in ~{eta}, {early} before reset',forecastWarming:'Used {pct} · warming up',forecastBasis:'{remaining} quota left · {time} of the window left · linear projection from this window\'s average usage',
       waiting:'Waiting for refresh',connecting:'Connecting to Antigravity…',waitingApp:'Waiting for Antigravity',waitingModel:'Waiting for a model request',waitingRequest:'No requests yet',
       hover:'Hover over the strip for details',autoConnect:'Open the app to connect automatically',loadingQuota:'Loading quota…',unavailableQuota:'Quota unavailable',
       live:'Connected to Antigrative Dashboard',stale:'Showing last available quota',offline:'Antigrative Dashboard is offline',
@@ -56,7 +56,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       strip:'Antigrative Dashboard 会话与额度状态条',session:'会话统计',cache:'缓存命中',cacheTitle:'Token 用量',five:'5h 额度',week:'周额度',weekShort:'周',
       modelTime:'模型调用用时',toolTime:'工具调用用时',ttft:'首 token 平均（TTFT）',ttftShort:'首字耗时',latestSpeed:'最新速度',sessionAvg:'会话平均',peakSpeed:'峰值',basisShortResponse:'正文输出',basisShortAll:'总输出',sessionTps:'会话输出速率（TPS）',latest:'最近一次请求',tokens:'正文 / 思考输出',remaining:'剩余',
       resetIn:'重置倒计时',resetTime:'重置时间（北京时间）',group:'额度组',selectGroup:'选择额度组',refresh:'刷新额度',refreshStats:'刷新统计',refreshing:'正在刷新…',
-      speedStyle:'速度卡样式',styleMinimal:'简约',styleCat:'像素猫',styleSaveFailed:'样式设置暂时无法保存，请重试。',outlookOk:'额度充裕',outlookTight:'额度偏紧',outlookExhaust:'重置前耗尽',paceIdle:'暂未消耗',forecastLeft:'预计重置时剩 ~{pct}',forecastDepletes:'约 {eta} 后耗尽，比重置早 {early}',forecastWarming:'已耗 {pct} · 采样预热中',forecastBasis:'剩余额度 {remaining} · 剩余时间 {time} · 按本窗口平均消耗线性推算',
+      speedStyle:'速度卡样式',styleMinimal:'简约',styleCat:'像素猫',styleSaveFailed:'样式设置暂时无法保存，请重试。',neonMascot:'氖龙',neonMascotOn:'氖龙彩蛋：已开启（点击关闭）',neonMascotOff:'氖龙彩蛋：已关闭（点击开启）',neonSaveFailed:'氖龙彩蛋设置暂时无法保存，请重试。',outlookOk:'额度充裕',outlookTight:'额度偏紧',outlookExhaust:'重置前耗尽',paceIdle:'暂未消耗',forecastLeft:'预计重置时剩 ~{pct}',forecastDepletes:'约 {eta} 后耗尽，比重置早 {early}',forecastWarming:'已耗 {pct} · 采样预热中',forecastBasis:'剩余额度 {remaining} · 剩余时间 {time} · 按本窗口平均消耗线性推算',
       waiting:'等待刷新',connecting:'连接 Antigravity…',waitingApp:'等待 Antigravity',waitingModel:'等待模型生成',waitingRequest:'尚无请求',hover:'悬停状态条，查看详细统计',autoConnect:'打开应用后自动连接',loadingQuota:'读取额度…',unavailableQuota:'额度暂不可用',
       live:'已连接 Antigrative Dashboard',stale:'显示上次成功读取的额度',offline:'Antigrative Dashboard 暂未连接',
       responseBasis:'统计方式：正文 Token ÷ 流式时长；会话 TPS 按总时长加权。',allBasis:'统计方式：输出 Token ÷ 流式时长；此模型未拆分正文与思考。',
@@ -90,7 +90,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       strip:'Antigrative Dashboard 對話與配額狀態列',session:'工作階段統計',cache:'快取命中',cacheTitle:'Token 用量',five:'5 小時配額',week:'每週配額',weekShort:'週',
       modelTime:'模型呼叫耗時',toolTime:'工具呼叫耗時',ttft:'首字回應平均時間 (TTFT)',ttftShort:'首字耗時',latestSpeed:'最新速率',sessionAvg:'階段平均',peakSpeed:'峰值',basisShortResponse:'回覆輸出',basisShortAll:'總輸出',sessionTps:'連線階段輸出速率 (TPS)',latest:'最近一次請求',tokens:'回覆內文 / 思考輸出',remaining:'剩餘',
       resetIn:'重設倒數',resetTime:'重設時間 (UTC+8)',group:'配額群組',selectGroup:'選取配額群組',refresh:'重新整理配額',refreshStats:'重新整理統計',refreshing:'正在重新整理…',
-      speedStyle:'速度卡樣式',styleMinimal:'簡約',styleCat:'像素貓',styleSaveFailed:'樣式設定暫時無法儲存，請重試。',outlookOk:'配額充裕',outlookTight:'配額偏緊',outlookExhaust:'重設前耗盡',paceIdle:'暫未消耗',forecastLeft:'預計重設時剩 ~{pct}',forecastDepletes:'約 {eta} 後耗盡，比重設早 {early}',forecastWarming:'已耗 {pct} · 取樣預熱中',forecastBasis:'剩餘配額 {remaining} · 剩餘時間 {time} · 依本週期平均消耗線性推算',
+      speedStyle:'速度卡樣式',styleMinimal:'簡約',styleCat:'像素貓',styleSaveFailed:'樣式設定暫時無法儲存，請重試。',neonMascot:'氖龍',neonMascotOn:'氖龍彩蛋：已開啟（點擊關閉）',neonMascotOff:'氖龍彩蛋：已關閉（點擊開啟）',neonSaveFailed:'氖龍彩蛋設定暫時無法儲存，請重試。',outlookOk:'配額充裕',outlookTight:'配額偏緊',outlookExhaust:'重設前耗盡',paceIdle:'暫未消耗',forecastLeft:'預計重設時剩 ~{pct}',forecastDepletes:'約 {eta} 後耗盡，比重設早 {early}',forecastWarming:'已耗 {pct} · 取樣預熱中',forecastBasis:'剩餘配額 {remaining} · 剩餘時間 {time} · 依本週期平均消耗線性推算',
       waiting:'等待重新整理',connecting:'連線至 Antigravity…',waitingApp:'等待 Antigravity',waitingModel:'等待模型生成',waitingRequest:'尚無請求',hover:'將游標移至狀態列可檢視詳細統計',autoConnect:'開啟應用程式後將自動連線',loadingQuota:'讀取配額中…',unavailableQuota:'配額暫時無法取得',
       live:'已連線至 Antigrative Dashboard',stale:'顯示前次成功讀取的配額',offline:'Antigrative Dashboard 尚未連線',
       responseBasis:'統計方式：回覆 Token ÷ 串流耗時；連線階段 TPS 依總時長加權計算。',allBasis:'統計方式：輸出 Token ÷ 串流耗時；此模型未區分回覆與思考過程。',
@@ -271,8 +271,10 @@ module.exports = function createDashboardI18n(initialLanguage) {
   }
   const SPEED_STYLES=['minimal','cat'];
   const USAGE_SCOPES=['local','account'];
+  const NEON_MASCOT_STATES=['off','on'];
   function normalizeSpeedStyle(value){return SPEED_STYLES.includes(value)?value:'minimal';}
   function normalizeUsageScope(value){return USAGE_SCOPES.includes(value)?value:'local';}
+  function normalizeNeonMascot(value){return NEON_MASCOT_STATES.includes(value)?value:'off';}
   function connectSpeedStyle(options){
     const ctrl=connectChoicePreference({key:'speedStyle',allowed:SPEED_STYLES,fallback:'minimal',...options});
     return {sync:ctrl.sync,choose:ctrl.choose,get style(){return ctrl.value;},get error(){return ctrl.error;},dispose:ctrl.dispose};
@@ -280,6 +282,10 @@ module.exports = function createDashboardI18n(initialLanguage) {
   function connectUsageScope(options){
     const ctrl=connectChoicePreference({key:'usageScope',allowed:USAGE_SCOPES,fallback:'local',...options});
     return {sync:ctrl.sync,choose:ctrl.choose,get scope(){return ctrl.value;},get error(){return ctrl.error;},dispose:ctrl.dispose};
+  }
+  function connectNeonMascot(options){
+    const ctrl=connectChoicePreference({key:'neonMascot',allowed:NEON_MASCOT_STATES,fallback:'off',...options});
+    return {sync:ctrl.sync,choose:ctrl.choose,get value(){return ctrl.value;},get enabled(){return ctrl.value==='on';},get error(){return ctrl.error;},dispose:ctrl.dispose};
   }
   // Straight-segment sparkline with an end point for the minimal style. Pure
   // geometry so every renderer draws the same shape.
@@ -422,5 +428,5 @@ module.exports = function createDashboardI18n(initialLanguage) {
     const critical=f.remaining<0.1||(f.willExhaust&&f.exhaustInMs!==null&&f.exhaustInMs<(chosen.w==='5h'?3600000:86400000));
     return {pace:f.outlook,delta:f.paceDelta,window:chosen.w,critical,label,title:`${winLabel} · ${label}`};
   }
-  return {mountLanguagePicker,normalizeSpeedStyle,connectSpeedStyle,normalizeUsageScope,connectUsageScope,minimalTrail,t,rateNote,quotaGroupKind,quotaGroupLabel,chooseQuotaGroup,quotaWindows,quotaRemaining,shortEta,quotaForecast,groupQuotaPace,countdown,elapsed,resetDate,errorMessage,connectPreferences,get language(){return language;},setLanguage(value){language=value==='zh-CN'||value==='zh-TW'?value:'en';if(language!=='en')lastZh=language;},toggle(){language=language==='en'?(lastZh||'zh-TW'):'en';return language;}};
+  return {mountLanguagePicker,normalizeSpeedStyle,connectSpeedStyle,normalizeUsageScope,connectUsageScope,normalizeNeonMascot,connectNeonMascot,minimalTrail,t,rateNote,quotaGroupKind,quotaGroupLabel,chooseQuotaGroup,quotaWindows,quotaRemaining,shortEta,quotaForecast,groupQuotaPace,countdown,elapsed,resetDate,errorMessage,connectPreferences,get language(){return language;},setLanguage(value){language=value==='zh-CN'||value==='zh-TW'?value:'en';if(language!=='en')lastZh=language;},toggle(){language=language==='en'?(lastZh||'zh-TW'):'en';return language;}};
 };

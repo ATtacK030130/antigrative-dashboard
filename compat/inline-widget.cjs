@@ -36,7 +36,11 @@ module.exports = function installAgPulseInlineWidget() {
     initial:localGet('ag-pulse-usage-scope'),cache:value=>localSet('ag-pulse-usage-scope',value),
     write:input=>window.agPulseHost.setPreferences(input),changed:()=>{for(const inst of instances)inst.onUsageScopeChanged();},
   });
-  function syncGuide(value){speedStyle.sync(value);usageScope.sync(value);if(value?.languageGuideDismissed===true)guideDismissed=true;if(value?.usageGuideDismissed===true){usageGuideDismissed=true;for(const inst of instances)inst.syncUsageGuide();}}
+  const neonMascotPref=language.connectNeonMascot({
+    initial:localGet('ag-pulse-neon-mascot'),cache:value=>localSet('ag-pulse-neon-mascot',value),
+    write:input=>window.agPulseHost.setPreferences(input),changed:()=>{for(const inst of instances)inst.onNeonMascotChanged();},
+  });
+  function syncGuide(value){speedStyle.sync(value);usageScope.sync(value);neonMascotPref.sync(value);if(value?.languageGuideDismissed===true)guideDismissed=true;if(value?.usageGuideDismissed===true){usageGuideDismissed=true;for(const inst of instances)inst.syncUsageGuide();}}
   const preferences=language.connectPreferences({
     read:async()=>{const value=await window.agPulseHost.getPreferences();syncGuide(value);return value;},
     write:async input=>{const value=await window.agPulseHost.setPreferences(input);syncGuide(value);return value;},
@@ -724,7 +728,7 @@ module.exports = function installAgPulseInlineWidget() {
       return false;
     };
     const position=()=>{
-      if(disposed||!enabled||isSuppressed()||!curComp||!curBar?.isConnected||curBar.style.visibility==='hidden'||!isNeon(curComp)){setShown(false);return;}
+      if(disposed||!enabled||!neonMascotPref.enabled||isSuppressed()||!curComp||!curBar?.isConnected||curBar.style.visibility==='hidden'||!isNeon(curComp)){setShown(false);return;}
       const card=findCard(curComp);
       if(!card){setShown(false);return;}
       const cr=card.getBoundingClientRect();
@@ -861,6 +865,8 @@ module.exports = function installAgPulseInlineWidget() {
     for(const button of root.querySelectorAll('[data-language-choice]')){attribute(button,'aria-pressed',button.dataset.languageChoice===language.language);attribute(button,'data-save-failed',preferences.error);attribute(button,'title',preferences.error?t('languageSaveFailed'):(button.getAttribute('aria-label')||button.textContent));}
     text('language-save-note',preferences.error?t('languageSaveFailed'):'');
     for(const button of root.querySelectorAll('[data-speed-style-choice]')){const value=button.dataset.speedStyleChoice,name=t(value==='cat'?'styleCat':'styleMinimal'),failed=speedStyle.error&&speedStyle.style===value;attribute(button,'aria-label',name);attribute(button,'title',failed?`${name} · ${t('styleSaveFailed')}`:name);attribute(button,'aria-pressed',speedStyle.style===value);attribute(button,'data-save-failed',failed);}
+    const neonBtn=$('neon-mascot-toggle');
+    if(neonBtn){const on=neonMascotPref.enabled,tip=t(on?'neonMascotOn':'neonMascotOff');text('neon-mascot-label',t('neonMascot'));attribute(neonBtn,'aria-pressed',String(on));attribute(neonBtn,'aria-label',tip);attribute(neonBtn,'title',neonMascotPref.error?`${tip} · ${t('neonSaveFailed')}`:tip);attribute(neonBtn,'data-save-failed',neonMascotPref.error);}
     const zh=language.language==='zh-CN',tw=language.language==='zh-TW';
     text('usage-today-label',tw?'今日用量':(zh?'今日用量':'Today'));text('usage-month-label',tw?'本月用量':(zh?'本月用量':'This month'));
     text('usage-open-label',tw?'檢視用量統計':(zh?'查看用量统计':'View token usage'));updateMenu?.localize();
@@ -1368,7 +1374,14 @@ module.exports = function installAgPulseInlineWidget() {
       .quota-bar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid var(--pulse-separator)}.quota-actions{display:flex;align-items:center;gap:6px}
       .quota-details{margin-top:7px}.quota-section+.quota-section{margin-top:8px;padding-top:8px;border-top:1px solid var(--pulse-separator)}.quota-section[hidden]+.quota-section{margin-top:0;padding-top:0;border-top:0}
       .quota-row-top{display:flex;align-items:baseline;gap:6px;font-size:11px}.quota-name{display:inline-flex;align-items:center;gap:5px;color:var(--pulse-label);margin-right:auto;min-width:0}.quota-meta{display:inline-flex;align-items:baseline;gap:4px;font-size:11px;color:var(--pulse-muted);font-variant-numeric:tabular-nums;white-space:nowrap}.quota-row-top strong{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;flex:none}.quota-track{margin:6px 0 0}.quota-section .footnote{margin-top:5px}
-      .card-language{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--pulse-separator);font-size:11px;color:var(--pulse-muted)}
+      .card-language{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:6px;margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--pulse-separator);font-size:11px;color:var(--pulse-muted)}
+      .card-language .update-trigger{margin-left:auto}
+      .neon-toggle{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border:0;border-radius:5px;background:transparent;color:var(--pulse-muted);font:inherit;font-size:11px;line-height:16px;white-space:nowrap;cursor:pointer;flex:none;transition:background-color 120ms ease,color 120ms ease,transform 120ms ease}
+      .neon-toggle:hover{background:var(--pulse-hover);color:var(--pulse-foreground)}.neon-toggle:active{transform:scale(.97)}
+      .neon-toggle[aria-pressed=true]{color:var(--pulse-foreground);background:color-mix(in srgb,#8b6fe6 18%,var(--pulse-hover));box-shadow:0 1px 2px var(--pulse-shadow)}
+      .neon-toggle[aria-pressed=true] svg{color:#9d7ef2;fill:currentColor;stroke:none}
+      .neon-toggle[data-save-failed=true]{color:var(--pulse-warning);text-decoration:underline dotted}
+      .neon-toggle svg{width:11px;height:11px;flex:none}
       .language-options{display:flex;gap:2px;padding:2px;border-radius:6px;background:var(--pulse-control);flex:none}
       .language-options .language-button{border:0;background:none;font-size:11px;padding:2px 6px;margin:0;border-radius:4px;color:var(--pulse-muted);line-height:16px;cursor:pointer;transition:background-color 140ms ease,color 140ms ease,transform 120ms ease}
       .language-options .language-button:hover{color:var(--pulse-hover-text);background:var(--pulse-hover)}
@@ -1433,8 +1446,9 @@ module.exports = function installAgPulseInlineWidget() {
       notice.querySelector('details').addEventListener('toggle',()=>{if(!disposed)position();});
     }
     const languageRow=document.createElement('div');languageRow.className='card-language';
-    setMarkup(languageRow,'<div class="language-options" role="group" data-i18n-aria="language"><button type="button" class="language-button" id="card-language-en" data-language-choice="en" aria-label="English">EN</button><button type="button" class="language-button" id="card-language-zh" data-language-choice="zh-CN" aria-label="简体中文">简</button><button type="button" class="language-button" id="card-language-zh-tw" data-language-choice="zh-TW" aria-label="繁體中文">繁</button></div>');
+    setMarkup(languageRow,'<div class="language-options" role="group" data-i18n-aria="language"><button type="button" class="language-button" id="card-language-en" data-language-choice="en" aria-label="English">EN</button><button type="button" class="language-button" id="card-language-zh" data-language-choice="zh-CN" aria-label="简体中文">简</button><button type="button" class="language-button" id="card-language-zh-tw" data-language-choice="zh-TW" aria-label="繁體中文">繁</button></div><button type="button" class="neon-toggle" id="neon-mascot-toggle" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 L9.8 6.2 L14.5 8 L9.8 9.8 L8 14.5 L6.2 9.8 L1.5 8 L6.2 6.2 Z"/></svg><span id="neon-mascot-label"></span></button>');
     $('context-card').append(languageRow);
+    $('neon-mascot-toggle').addEventListener('click',()=>void neonMascotPref.choose(neonMascotPref.enabled?'off':'on'));
     if(window.__agPulseUpdateFactory&&window.agPulseHost.updatePlugin)updateMenu=window.__agPulseUpdateFactory({root,row:languageRow,language,setMarkup,request:input=>window.agPulseHost.updatePlugin(input),onOpen:hide});
     const saveNote=document.createElement('p');saveNote.className='footnote';saveNote.id='language-save-note';languageRow.after(saveNote);
     const guide=document.createElement('section');guide.className='language-guide';guide.id='language-guide';guide.hidden=true;guide.setAttribute('role','region');guide.setAttribute('aria-label','Language / 語言 / 语言');
@@ -1828,6 +1842,7 @@ module.exports = function installAgPulseInlineWidget() {
     onLocaleChanged(){if(root){localize();render();tick();position();}},
     onSpeedStyleChanged(){if(root){attribute(node,'data-speed-style',speedStyle.style);localize();paintSpeed([],'idle',0.36,false);render();tick();position();}},
     onUsageScopeChanged(){if(root){render();}},
+    onNeonMascotChanged(){if(root){localize();neonMascot.position();}},
     syncUsageGuide(){usageDashboard?.syncGuideDismissed();},
     poll(){
       if(instDisposed||!node)return;
@@ -1900,7 +1915,7 @@ module.exports = function installAgPulseInlineWidget() {
   const timerId=setInterval(()=>{mount();for(const inst of instances)inst.poll();},1000);
   window.__agPulseDispose=()=>{
     disposed=true;
-    clearInterval(timerId);if(layoutFrame!==null)cancelAnimationFrame(layoutFrame);observer.disconnect();preferences.dispose();
+    clearInterval(timerId);if(layoutFrame!==null)cancelAnimationFrame(layoutFrame);observer.disconnect();preferences.dispose();neonMascotPref.dispose();
     for(const inst of instances.splice(0))inst.dispose();
     document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer);document.removeEventListener('focusin',onFocus);
     document.removeEventListener('scroll',scheduleLayout,true);window.removeEventListener('resize',scheduleLayout);

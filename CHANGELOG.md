@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.8 — 2026-11-19
+
+- Make the **Neon (氖龙) mascot Easter egg opt-in (`off` by default)** across all desktop App and standalone IDE installations: new downloads and in-app updates stay completely clean with zero mascot DOM mounted unless explicitly enabled.
+- Add a compact **`✦ Neon` / `✦ 氖龙` / `✦ 氖龍` toggle** inside the Context card footer (next to the language switcher) backed by durable `neonMascot` (`off` / `on`) preferences in `preferences.json` and `localStorage` caching, syncing immediately across all composer instances and persisting across restarts.
+
 ## 0.9.7 — 2026-11-19
 
 - Add the **Neon (氖龙) interactive plush mascot Easter egg** in `compat/inline-widget.cjs`: when switching to a Neon model (e.g. `Orchestrator (Neon)`, `Gemini 4 Neon`), a compact baked two-frame WebP plushie (`~10.8 KB` total, zero external network assets) peeks out from the top-right border of the composer card inside an isolated Shadow DOM stage with zero host style mutations.

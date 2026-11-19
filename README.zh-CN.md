@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.7](https://img.shields.io/badge/version-0.9.7-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.8](https://img.shields.io/badge/version-0.9.8-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.33.0](https://img.shields.io/badge/Antigravity-2.33.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.7（Neon 彩蛋版）：** 新增 **Neon（氖龙）毛绒玩偶交互彩蛋**——切到含 Neon 的模型时，会在会话栏右上角钻出一只内联双帧毛绒小玩偶，支持定制 `✦ 氖龙` 微磨砂气泡、按住摸头揉捏与果冻回弹、单击切换「缩回偷看 / 坐出来」、近场好奇歪头及打字陪伴小点头，并完整保留 v0.9.6 macOS 启动器与 v0.9.5 内存/历史补录优化。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.7) · [兼容性](COMPATIBILITY.md)。
+**v0.9.8：** 将 **Neon（氖龙）毛绒玩偶彩蛋** 改为**默认关闭**（默认下载与应用内更新均纯净无玩偶、零 DOM 开销），在上下文详情卡底部语言切换旁新增持久化 **`✦ 氖龙`** 开关供随时开启，并保留 v0.9.6 macOS 启动器与 v0.9.5 内存/历史补录优化。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.8) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.7.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.8.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
