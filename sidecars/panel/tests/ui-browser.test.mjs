@@ -280,44 +280,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
   assert.equal(quotaText.fiveHidden, false);
   assert.equal(quotaText.fiveVal, '81.1M toks (约 644.2M 满额)');
   assert.equal(quotaText.weekVal, '129.9M toks (约 216.2M 满额)');
-
-  // Context limit override (auto host native 512K -> 734K cycle -> custom 600k -> auto) + compaction count
-  const inlineContextDefault = await evalJs(`() => {
-    const sr = document.getElementById('ag-pulse-status-bar').shadowRoot;
-    return {
-      badge: sr.getElementById('context-limit-badge').textContent,
-      tokens: sr.getElementById('context-tokens').textContent,
-      pct: sr.getElementById('context-percent').textContent,
-      alertHidden: sr.getElementById('context-preview-alert').hidden,
-      compaction: sr.getElementById('context-compaction-pill').textContent,
-    };
-  }`);
-  assert.deepEqual(inlineContextDefault, {
-    badge: '512K',
-    tokens: '100K / 512K toks',
-    pct: '20%',
-    alertHidden: true,
-    compaction: '🗜 2 次',
-  });
-  await evalJs(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('context-limit-badge').click()`);
-  await waitUntil(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('context-limit-badge').textContent === '👁 734K'`, 'inline cycled past host 512K to 734K');
-  assert.equal(prefs.contextLimitOverride, '734k');
-  assert.equal(await evalJs(`() => { const sr = document.getElementById('ag-pulse-status-bar').shadowRoot; return [sr.getElementById('context-tokens').textContent, sr.getElementById('context-percent').textContent, sr.getElementById('context-preview-alert').hidden]; }`).then(v => JSON.stringify(v)), JSON.stringify(['100K / 734K toks', '14%', false]));
-  await evalJs(`() => {
-    const sr = document.getElementById('ag-pulse-status-bar').shadowRoot;
-    sr.getElementById('context-limit-custom-btn').click();
-    sr.getElementById('context-limit-input').value = '600k';
-    sr.getElementById('context-limit-apply').click();
-  }`);
-  await waitUntil(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('context-limit-badge').textContent === '👁 600K'`, 'inline custom 600k applied');
-  assert.equal(prefs.contextLimitOverride, '600000');
-  await evalJs(`() => {
-    const sr = document.getElementById('ag-pulse-status-bar').shadowRoot;
-    sr.getElementById('context-limit-custom-btn').click();
-    sr.getElementById('context-limit-auto').click();
-  }`);
-  await waitUntil(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('context-limit-badge').textContent === '512K'`, 'inline reset back to auto');
-  assert.equal(prefs.contextLimitOverride, 'auto');
+  assert.equal(await evalJs(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('context-compaction-pill').textContent`), '🗜 2 次');
 
   // Cache card compact breakdown with exact title tooltips + zero horizontal ellipsis
   const cacheCard = await evalJs(`() => {
@@ -687,11 +650,6 @@ test('font sync, scope switching and quota window reference render end-to-end in
   assert.equal(panelCheck.weekVal, '129.9M toks (约 216.2M 满额)');
   assert.equal(panelCheck.fits, true, `context-card should fit cleanly inside 580px frame: ${panelCheck.scrollH} vs ${panelCheck.clientH}`);
   assert.equal(await evalJs(`() => document.getElementById('context-compaction-pill').textContent`), '🗜 2 次');
-  await evalJs(`() => { document.getElementById('context-tab').click(); document.getElementById('context-limit-badge').click(); }`);
-  await waitUntil(`() => document.getElementById('context-limit-badge').textContent === '👁 734K'`, 'panel cycled to 734K');
-  assert.equal(await evalJs(`() => document.getElementById('context-tokens').textContent`), '100K / 734K toks');
-  await evalJs(`() => document.getElementById('context-limit-badge').click()`);
-  await waitUntil(`() => document.getElementById('context-limit-badge').textContent === '512K'`, 'panel cycled back to auto');
   assert.equal(panelCheck.stripCacheTotal, '61.8M tok', 'panel top strip retains tok');
   assert.equal(panelCheck.cacheCoverage, '61,795,796');
   assert.equal(panelCheck.cacheCoverageUnit, 'toks');

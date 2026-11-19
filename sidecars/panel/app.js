@@ -37,8 +37,6 @@ let languagePicker=null;
 let preferences=connectPreferences();
 const speedStyle=language.connectSpeedStyle({initial:localGet('ag-pulse-speed-style'),cache:value=>localSet('ag-pulse-speed-style',value),write:preferenceRequest,
   changed:()=>{applySpeedStyle();localize();render();}});
-const contextLimitPref=language.connectContextLimit({initial:localGet('ag-pulse-context-limit'),cache:value=>localSet('ag-pulse-context-limit',value),write:preferenceRequest,
-  changed:()=>{localize();render();}});
 function applySpeedStyle(){
   document.documentElement.dataset.speedStyle=speedStyle.style;
   $('speed-hero-icon')?.setAttribute('href',speedStyle.style==='cat'?'#gauge':'#pulse');
@@ -71,9 +69,6 @@ function localize(){
     button.setAttribute('aria-label',name);button.title=failed?`${name} · ${t('styleSaveFailed')}`:name;
     button.setAttribute('aria-pressed',String(speedStyle.style===value));button.dataset.saveFailed=String(failed);
   }
-  const customBtn=$('context-limit-custom-btn'),limitInput=$('context-limit-input');
-  if(customBtn){customBtn.title=t('contextCustomLimit');customBtn.setAttribute('aria-label',t('contextCustomLimit'));}
-  if(limitInput)limitInput.setAttribute('placeholder',t('contextCustomPlaceholder'));
 }
 
 function chooseGroup(groups, speed, composerModel) {
@@ -306,23 +301,15 @@ function render() {
   cacheAttr('data-task-current-only',currentOnly?'true':null);
   cacheAttr('aria-label',currentOnly?t('taskCurrentOnly'):null);
   cacheAttr('title',currentOnly?t('taskCurrentOnly'):null);
-  const context=speed?.context;
-  const validHostMax=typeof context?.maxTokens==='number'&&context.maxTokens>0?context.maxTokens:null;
-  const overrideTokens=language.contextLimitTokens(contextLimitPref.value);
-  const effectiveMax=overrideTokens>0?overrideTokens:validHostMax;
-  const isPreviewOverride=Boolean(overrideTokens>0&&overrideTokens!==validHostMax);
-  const hasUsedTokens=typeof context?.usedTokens==='number'&&Number.isFinite(context.usedTokens);
-  const hasCapacity=Boolean(effectiveMax!==null&&effectiveMax>0&&hasUsedTokens);
-  const effectiveFraction=hasCapacity?(context.usedTokens/effectiveMax):0;
-  const effectiveRemaining=Math.max(0,1-effectiveFraction);
+  const context=speed?.context,hasCapacity=typeof context?.usedFraction==='number';
   const transcript=speed?.transcriptStats;
   const compactions=transcript&&['ready','partial'].includes(transcript.status)&&typeof transcript.compactionMarkers==='number'?transcript.compactionMarkers:null;
   const compSuffix=compactions!==null&&compactions>0?` · 🗜 ${t('contextCompactionCount',{n:compactions})}`:'';
-  $('strip-context').textContent=hasCapacity?`${Math.round(effectiveFraction*100)}%`:'—';
-  $('strip-context-size').textContent=context?`${compact(context.usedTokens)} / ${effectiveMax===null?'—':compact(effectiveMax)}`:'—';
-  $('context-tab').title=(context?t('contextTokens',{used:count(context.usedTokens),max:effectiveMax===null?'—':count(effectiveMax)}):t('contextUnknown'))+compSuffix;
-  $('context-summary').textContent=hasCapacity?t('contextUsed',{used:Math.round(effectiveFraction*100),remaining:Math.round(effectiveRemaining*100)}):t('contextUnknown');
-  $('context-tokens').textContent=context?t('contextTokens',{used:compact(context.usedTokens),max:effectiveMax===null?'—':compact(effectiveMax)}):'—';
+  $('strip-context').textContent=hasCapacity?`${Math.round(context.usedFraction*100)}%`:'—';
+  $('strip-context-size').textContent=context?`${compact(context.usedTokens)} / ${context.maxTokens===null?'—':compact(context.maxTokens)}`:'—';
+  $('context-tab').title=(context?t('contextTokens',{used:count(context.usedTokens),max:context.maxTokens===null?'—':count(context.maxTokens)}):t('contextUnknown'))+compSuffix;
+  $('context-summary').textContent=hasCapacity?t('contextUsed',{used:Math.round(context.usedFraction*100),remaining:Math.round(context.remainingFraction*100)}):t('contextUnknown');
+  $('context-tokens').textContent=context?t('contextTokens',{used:compact(context.usedTokens),max:context.maxTokens===null?'—':compact(context.maxTokens)}):'—';
   $('context-model').textContent=context?.model||'—';
   const compactionPill=$('context-compaction-pill');
   if(compactionPill){
@@ -332,23 +319,9 @@ function render() {
       compactionPill.title=t('contextCompactionsTitle',{n:compactions});
     }
   }
-  const hostLabel=validHostMax!==null?compact(validHostMax):t('contextLimitUnknown');
-  const limitBadge=$('context-limit-badge');
-  if(limitBadge){
-    const baseTip=isPreviewOverride?t('contextLimitTooltipOverride',{limit:compact(effectiveMax),host:hostLabel}):t('contextLimitTooltipHost',{limit:hostLabel});
-    limitBadge.className='context-limit-badge'+(isPreviewOverride?' preview':'');
-    limitBadge.textContent=isPreviewOverride?`👁 ${compact(effectiveMax)}`:(validHostMax!==null?compact(validHostMax):t('contextLimitAuto'));
-    limitBadge.title=contextLimitPref.error?`${baseTip} · ${t('contextLimitSaveFailed')}`:baseTip;
-    limitBadge.dataset.saveFailed=String(contextLimitPref.error);
-  }
-  const previewAlert=$('context-preview-alert');
-  if(previewAlert){
-    hidden('context-preview-alert',!isPreviewOverride);
-    if(isPreviewOverride)previewAlert.textContent=t('contextPreviewAlert',{limit:compact(effectiveMax),host:hostLabel});
-  }
-  $('context-fill').style.width=hasCapacity?`${Math.min(1,effectiveFraction)*100}%`:'0%';
-  $('context-fill').style.background=hasCapacity&&effectiveFraction>=.9?'var(--pulse-danger)':hasCapacity&&effectiveFraction>=.75?'var(--pulse-warning)':'';
-  if(hasCapacity){$('context-track').setAttribute('aria-valuenow',String(Math.min(100,effectiveFraction*100)));$('context-track').setAttribute('aria-valuemin','0');$('context-track').setAttribute('aria-valuemax','100');}else $('context-track').removeAttribute('aria-valuenow');
+  $('context-fill').style.width=hasCapacity?`${Math.min(1,context.usedFraction)*100}%`:'0%';
+  $('context-fill').style.background=hasCapacity&&context.usedFraction>=.9?'var(--pulse-danger)':hasCapacity&&context.usedFraction>=.75?'var(--pulse-warning)':'';
+  if(hasCapacity){$('context-track').setAttribute('aria-valuenow',String(Math.min(100,context.usedFraction*100)));$('context-track').setAttribute('aria-valuemin','0');$('context-track').setAttribute('aria-valuemax','100');}else $('context-track').removeAttribute('aria-valuenow');
   text('strip-cache',percent(cache?.hitRate));text('cache-rate',percent(cache?.hitRate));
   const tokens=usage?.tokens || cache;
   // Coverage remains available in raw statistics and documented separately.
@@ -453,7 +426,7 @@ function refresh(force = false) {
     if (!['live','stale','offline'].includes(value.connection)) throw new Error(t('invalidData'));
     snapshot = value;
     if(Object.hasOwn(value,'theme'))themeController.setHostTheme(value.theme);
-    if(value.preferences){preferences.sync(value.preferences);speedStyle.sync(value.preferences);contextLimitPref.sync(value.preferences);}
+    if(value.preferences){preferences.sync(value.preferences);speedStyle.sync(value.preferences);}
     serverOffset = Date.parse(value.serverTime) - Date.now();
     if (!Number.isFinite(serverOffset)) serverOffset = 0;
     render();
@@ -471,48 +444,8 @@ $('quota-group').addEventListener('change', event => { selectedGroup = event.tar
 $('refresh-button').addEventListener('click', refreshManually);
 languagePicker=language.mountLanguagePicker({button:$('language-toggle'),parent:document.body,choose:value=>preferences.choose(value)});
 for(const button of document.querySelectorAll('[data-speed-style-choice]'))button.addEventListener('click',()=>void speedStyle.choose(button.dataset.speedStyleChoice));
-$('context-limit-badge')?.addEventListener('click',()=>{
-  const hostMax=snapshot?.speed?.context?.maxTokens;
-  const presets=['auto','512k','734k'].filter(p=>!(hostMax===512000&&p==='512k')&&!(hostMax===734000&&p==='734k'));
-  const idx=presets.indexOf(contextLimitPref.value);
-  void contextLimitPref.choose(presets[(idx+1)%presets.length]);
-});
-function closeCustomLimitEditor(){
-  const ed=$('context-limit-editor'),btn=$('context-limit-custom-btn'),err=$('context-limit-err');
-  if(ed)hidden('context-limit-editor',true);
-  if(err){err.textContent='';hidden('context-limit-err',true);}
-  if(btn)btn.setAttribute('aria-expanded','false');
-}
-function applyCustomLimitInput(){
-  const input=$('context-limit-input'),err=$('context-limit-err');
-  const parsed=language.parseContextLimitOverride(input?.value);
-  if(!parsed){
-    if(err){err.textContent=t('contextCustomInvalid');hidden('context-limit-err',false);}
-    input?.focus();
-    return;
-  }
-  void contextLimitPref.choose(parsed);
-  closeCustomLimitEditor();
-}
-$('context-limit-custom-btn')?.addEventListener('click',()=>{
-  const ed=$('context-limit-editor'),btn=$('context-limit-custom-btn'),input=$('context-limit-input'),err=$('context-limit-err');
-  if(!ed)return;
-  const opening=ed.hidden;
-  hidden('context-limit-editor',!opening);
-  if(btn)btn.setAttribute('aria-expanded',String(opening));
-  if(opening){
-    if(err){err.textContent='';hidden('context-limit-err',true);}
-    if(input){input.value=contextLimitPref.value==='auto'?'':contextLimitPref.value;input.focus();input.select();}
-  }else closeCustomLimitEditor();
-});
-$('context-limit-apply')?.addEventListener('click',applyCustomLimitInput);
-$('context-limit-auto')?.addEventListener('click',()=>{void contextLimitPref.choose('auto');closeCustomLimitEditor();});
-$('context-limit-input')?.addEventListener('keydown',event=>{
-  if(event.key==='Enter'){event.preventDefault();applyCustomLimitInput();}
-  else if(event.key==='Escape'){event.preventDefault();closeCustomLimitEditor();}
-});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-window.addEventListener('pagehide',()=>{preferences.dispose();speedStyle.dispose();contextLimitPref.dispose();languagePicker.close(false);});
+window.addEventListener('pagehide',()=>{preferences.dispose();speedStyle.dispose();languagePicker.close(false);});
 window.addEventListener('pageshow',event=>{if(event.persisted)preferences=connectPreferences();});
 setInterval(updateCountdowns,1000);
 applySpeedStyle();

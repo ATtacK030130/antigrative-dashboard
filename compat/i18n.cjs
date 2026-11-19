@@ -14,8 +14,6 @@ module.exports = function createDashboardI18n(initialLanguage) {
       taskOwn:'Current agent',taskSubagents:'Subagents ({n})',taskLoading:'Summing subagents…',taskPartial:'Some subagents unavailable',taskCurrentOnly:'Current agent only; subagent statistics unavailable.',
       transcriptTitle:'Recorded text estimate',transcriptUser:'User text',transcriptAssistant:'Replies + thinking',transcriptTool:'Tool output',transcriptSystem:'System text',transcriptMarkers:'Compaction markers',transcriptImages:'Image-generation steps',transcriptPartial:'partial',transcriptLoading:'Loading…',transcriptUnavailable:'Unavailable',transcriptSaved:'saved',transcriptBasis:'Estimated logged text, not active context or billed usage. Hidden prompts, media and tool-call arguments are excluded.',
       contextHostLimit:'Active window (host)',contextProviderCapacity:'Provider capacity reference',contextCompressionLimit:'Compaction threshold',contextLimitUnknown:'Unknown',contextReferenceBasis:'Provider specification; not this session\'s available capacity.',
-      contextLimitAuto:'Auto',contextCustomLimit:'Custom window limit',contextCustomPlaceholder:'e.g. 512k, 600k, 1m',contextCustomApply:'Apply',contextCustomInvalid:'Enter 65536–2097152 (e.g. 512k, 600k, 1m).',contextLimitSaveFailed:'Context limit could not be saved. Try again.',
-      contextLimitTooltipHost:'Host-reported window ({limit}). Click to cycle UI preview: Auto / 512K / 734K.',contextLimitTooltipOverride:'UI preview denominator: {limit} (host reports {host}). Click to cycle.',contextPreviewAlert:'Previewing {limit} denominator in UI (host reports {host}; backend still compacts at host limit).',
       contextCompactions:'Compactions',contextCompactionCount:'{n}×',contextCompactionsTitle:'Context compactions recorded in this conversation: {n}',
       context:'Context window',contextShort:'Ctx',contextUsed:'{used}% used',contextTokens:'{used} / {max} toks',contextUnknown:'Context capacity unavailable',contextUnavailable:'Context statistics are unavailable for this request.',contextBasis:'Host estimate at the latest request start; not cumulative tokens or a live streaming counter.',contextModel:'Sampled model',contextLimit:'Window capacity',contextUsage:'Used tokens (estimate)',contextSaved:'Showing saved context statistics ({time}).',contextExceeded:'The host estimate exceeds the reported capacity.',
       savedStats:'Showing saved conversation statistics ({time}).',saveFailed:'Statistics could not be saved locally.',
@@ -54,8 +52,6 @@ module.exports = function createDashboardI18n(initialLanguage) {
       taskOwn:'当前代理',taskSubagents:'子代理（{n}）',taskLoading:'正在汇总子代理…',taskPartial:'部分子代理暂不可读取',taskCurrentOnly:'仅当前代理；子代理统计暂不可用',
       transcriptTitle:'已记录文本估算',transcriptUser:'用户文本',transcriptAssistant:'回复与思考',transcriptTool:'工具输出',transcriptSystem:'系统文本',transcriptMarkers:'压缩标记记录',transcriptImages:'图像生成步骤',transcriptPartial:'不完整',transcriptLoading:'读取中…',transcriptUnavailable:'不可用',transcriptSaved:'已保存',transcriptBasis:'日志文本估算，非当前上下文或计费用量。不含隐藏提示、媒体和工具调用参数。',
       contextHostLimit:'当前窗口容量（宿主）',contextProviderCapacity:'供应商容量参考',contextCompressionLimit:'压缩触发阈值',contextLimitUnknown:'未知',contextReferenceBasis:'供应商规格参考，不代表当前会话可用容量。',
-      contextLimitAuto:'自动',contextCustomLimit:'自定义窗口上限',contextCustomPlaceholder:'如 512k、600k、1m',contextCustomApply:'应用',contextCustomInvalid:'请输入 65536–2097152（如 512k、600k、1m）',contextLimitSaveFailed:'上下文上限设置暂时无法保存，请重试。',
-      contextLimitTooltipHost:'宿主报告窗口（{limit}）。点击切换前端预览分母（自动 / 512K / 734K）。',contextLimitTooltipOverride:'当前为前端预览分母 {limit}（宿主报告 {host}）。点击切换。',contextPreviewAlert:'当前为前端预览分母 {limit}（宿主实际报告 {host}，后端仍按宿主阈值压缩）。',
       contextCompactions:'已压缩',contextCompactionCount:'{n} 次',contextCompactionsTitle:'当前会话已记录的上下文压缩次数：{n} 次',
       context:'上下文窗口',contextShort:'上下文',contextUsed:'{used}% 已用',contextTokens:'{used} / {max} toks',contextUnknown:'上下文容量不可用',contextUnavailable:'此请求暂无可用上下文统计。',contextBasis:'宿主在最近请求开始时的估计值，非累计 Token，也非流式实时计数。',contextModel:'采样模型',contextLimit:'窗口容量',contextUsage:'已用 Token（估计）',contextSaved:'显示已保存的上下文统计（{time}）。',contextExceeded:'宿主估计值超过返回的窗口容量。',
       savedStats:'显示已保存的会话统计（{time}）。',saveFailed:'统计暂时无法保存到本地。',
@@ -91,8 +87,6 @@ module.exports = function createDashboardI18n(initialLanguage) {
       taskOwn:'目前代理',taskSubagents:'子代理（{n}）',taskLoading:'正在彙總子代理…',taskPartial:'部分子代理暫時無法讀取',taskCurrentOnly:'僅目前代理；子代理統計暫時無法取得',
       transcriptTitle:'已記錄文字預估',transcriptUser:'使用者文字',transcriptAssistant:'回覆與思考過程',transcriptTool:'工具輸出',transcriptSystem:'系統文字',transcriptMarkers:'壓縮標記記錄',transcriptImages:'圖片生成步驟',transcriptPartial:'部分記錄',transcriptLoading:'載入中…',transcriptUnavailable:'無法提供',transcriptSaved:'已儲存',transcriptBasis:'依記錄文字推算之預估值，非作用中上下文或計費用量。不含隱藏提示詞、媒體檔案與工具呼叫引數。',
       contextHostLimit:'目前視窗容量（宿主環境）',contextProviderCapacity:'供應商規格容量參考',contextCompressionLimit:'觸發壓縮門檻',contextLimitUnknown:'未知',contextReferenceBasis:'模型供應商規格參考值，不代表目前對話的可用容量。',
-      contextLimitAuto:'自動',contextCustomLimit:'自訂視窗上限',contextCustomPlaceholder:'如 512k、600k、1m',contextCustomApply:'套用',contextCustomInvalid:'請輸入 65536–2097152（如 512k、600k、1m）',contextLimitSaveFailed:'上下文上限設定暫時無法儲存，請重試。',
-      contextLimitTooltipHost:'宿主回報視窗（{limit}）。點擊切換前端預覽分母（自動 / 512K / 734K）。',contextLimitTooltipOverride:'目前為前端預覽分母 {limit}（宿主回報 {host}）。點擊切換。',contextPreviewAlert:'目前為前端預覽分母 {limit}（宿主實際回報 {host}，後端仍依宿主門檻壓縮）。',
       contextCompactions:'已壓縮',contextCompactionCount:'{n} 次',contextCompactionsTitle:'目前對話已記錄的上下文壓縮次數：{n} 次',
       context:'上下文視窗',contextShort:'上下文',contextUsed:'{used}% 已使用',contextTokens:'{used} / {max} toks',contextUnknown:'目前無法取得上下文容量',contextUnavailable:'此請求目前無法取得上下文統計資料。',contextBasis:'宿主環境於最近一次請求發起時的預估值，非累計 Token，亦非串流即時計數。',contextModel:'取樣模型',contextLimit:'視窗容量',contextUsage:'已用 Token（預估）',contextSaved:'顯示已儲存的上下文統計資料（{time}）。',contextExceeded:'宿主預估值已超過回傳的視窗容量。',
       savedStats:'顯示已儲存的對話統計資料（{time}）。',saveFailed:'統計資料暫時無法儲存至本機。',
@@ -246,8 +240,8 @@ module.exports = function createDashboardI18n(initialLanguage) {
     })();
     return {ready,sync,choose,toggle:()=>choose(language==='en'?(lastZh||'zh-TW'):'en'),get error(){return error;},get pending(){return writes>0;},dispose(){disposed=true;}};
   }
-  function connectChoicePreference({key,allowed,fallback,parse,write,initial=null,cache=()=>{},changed=()=>{}}){
-    const normalize=parse?(value=>parse(value)??fallback):(value=>allowed.includes(value)?value:fallback);
+  function connectChoicePreference({key,allowed,fallback,write,initial=null,cache=()=>{},changed=()=>{}}){
+    const normalize=value=>allowed.includes(value)?value:fallback;
     let current=normalize(initial),epoch=0,writes=0,revision=-1,error=false,disposed=false,queue=Promise.resolve();
     const notify=()=>{if(!disposed)changed(current);};
     const remember=()=>{try{cache(current);}catch{}};
@@ -263,13 +257,12 @@ module.exports = function createDashboardI18n(initialLanguage) {
       if(dirty)notify();
     }
     function choose(value){
-      const accepted=parse?parse(value):(allowed.includes(value)?value:null);
-      if(disposed||accepted===null)return Promise.resolve();
-      const choice=++epoch;current=accepted;writes++;error=false;remember();notify();
+      if(disposed||!allowed.includes(value))return Promise.resolve();
+      const choice=++epoch;current=value;writes++;error=false;remember();notify();
       const pending=queue.then(async()=>{
         try{
-          const saved=await write({[key]:accepted});
-          if(!saved||saved.error||saved[key]!==accepted)throw new Error('Preference acknowledgement differs');
+          const saved=await write({[key]:value});
+          if(!saved||saved.error||saved[key]!==value)throw new Error('Preference acknowledgement differs');
           revision=Math.max(revision,Number.isSafeInteger(saved.revision)?saved.revision:0);
           if(choice===epoch)error=false;
         }catch{if(choice===epoch)error=true;}
@@ -282,30 +275,6 @@ module.exports = function createDashboardI18n(initialLanguage) {
   const SPEED_STYLES=['minimal','cat'];
   const USAGE_SCOPES=['local','account'];
   const NEON_MASCOT_STATES=['off','on'];
-  function parseContextLimitOverride(raw){
-    if(Number.isSafeInteger(raw))raw=String(raw);
-    if(typeof raw!=='string')return null;
-    const trimmed=raw.trim().toLowerCase();
-    if(trimmed==='auto'||trimmed==='256k'||trimmed==='512k'||trimmed==='734k')return trimmed;
-    const match=/^(\d+)([km])?$/.exec(trimmed);
-    if(!match)return null;
-    const mult=match[2]==='m'?1000000:match[2]==='k'?1000:1;
-    const tokens=Number(match[1])*mult;
-    if(!Number.isSafeInteger(tokens)||tokens<65536||tokens>2097152)return null;
-    if(tokens===256000)return '256k';
-    if(tokens===512000)return '512k';
-    if(tokens===734000)return '734k';
-    return String(tokens);
-  }
-  function normalizeContextLimitOverride(value){return parseContextLimitOverride(value)||'auto';}
-  function contextLimitTokens(value){
-    const normalized=normalizeContextLimitOverride(value);
-    if(normalized==='auto')return 0;
-    if(normalized==='256k')return 256000;
-    if(normalized==='512k')return 512000;
-    if(normalized==='734k')return 734000;
-    return Number(normalized)||0;
-  }
   function normalizeSpeedStyle(value){return SPEED_STYLES.includes(value)?value:'minimal';}
   function normalizeUsageScope(value){return USAGE_SCOPES.includes(value)?value:'local';}
   function normalizeNeonMascot(value){return NEON_MASCOT_STATES.includes(value)?value:'off';}
@@ -320,10 +289,6 @@ module.exports = function createDashboardI18n(initialLanguage) {
   function connectNeonMascot(options){
     const ctrl=connectChoicePreference({key:'neonMascot',allowed:NEON_MASCOT_STATES,fallback:'off',...options});
     return {sync:ctrl.sync,choose:ctrl.choose,get value(){return ctrl.value;},get enabled(){return ctrl.value==='on';},get error(){return ctrl.error;},dispose:ctrl.dispose};
-  }
-  function connectContextLimit(options){
-    const ctrl=connectChoicePreference({key:'contextLimitOverride',fallback:'auto',parse:parseContextLimitOverride,...options});
-    return {sync:ctrl.sync,choose:ctrl.choose,get value(){return ctrl.value;},get tokens(){return contextLimitTokens(ctrl.value);},get error(){return ctrl.error;},dispose:ctrl.dispose};
   }
   // Straight-segment sparkline with an end point for the minimal style. Pure
   // geometry so every renderer draws the same shape.
@@ -466,5 +431,5 @@ module.exports = function createDashboardI18n(initialLanguage) {
     const critical=f.remaining<0.1||(f.willExhaust&&f.exhaustInMs!==null&&f.exhaustInMs<(chosen.w==='5h'?3600000:86400000));
     return {pace:f.outlook,delta:f.paceDelta,window:chosen.w,critical,label,title:`${winLabel} · ${label}`};
   }
-  return {mountLanguagePicker,normalizeSpeedStyle,connectSpeedStyle,normalizeUsageScope,connectUsageScope,normalizeNeonMascot,connectNeonMascot,parseContextLimitOverride,normalizeContextLimitOverride,contextLimitTokens,connectContextLimit,minimalTrail,t,rateNote,quotaGroupKind,quotaGroupLabel,chooseQuotaGroup,quotaWindows,quotaRemaining,shortEta,quotaForecast,groupQuotaPace,countdown,elapsed,resetDate,errorMessage,connectPreferences,get language(){return language;},setLanguage(value){language=value==='zh-CN'||value==='zh-TW'?value:'en';if(language!=='en')lastZh=language;},toggle(){language=language==='en'?(lastZh||'zh-TW'):'en';return language;}};
+  return {mountLanguagePicker,normalizeSpeedStyle,connectSpeedStyle,normalizeUsageScope,connectUsageScope,normalizeNeonMascot,connectNeonMascot,minimalTrail,t,rateNote,quotaGroupKind,quotaGroupLabel,chooseQuotaGroup,quotaWindows,quotaRemaining,shortEta,quotaForecast,groupQuotaPace,countdown,elapsed,resetDate,errorMessage,connectPreferences,get language(){return language;},setLanguage(value){language=value==='zh-CN'||value==='zh-TW'?value:'en';if(language!=='en')lastZh=language;},toggle(){language=language==='en'?(lastZh||'zh-TW'):'en';return language;}};
 };
