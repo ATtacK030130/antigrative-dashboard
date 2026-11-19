@@ -422,5 +422,53 @@ module.exports = function createDashboardI18n(initialLanguage) {
     const critical=f.remaining<0.1||(f.willExhaust&&f.exhaustInMs!==null&&f.exhaustInMs<(chosen.w==='5h'?3600000:86400000));
     return {pace:f.outlook,delta:f.paceDelta,window:chosen.w,critical,label,title:`${winLabel} · ${label}`};
   }
-  return {mountLanguagePicker,normalizeSpeedStyle,connectSpeedStyle,normalizeUsageScope,connectUsageScope,minimalTrail,t,rateNote,quotaGroupKind,quotaGroupLabel,chooseQuotaGroup,quotaWindows,quotaRemaining,shortEta,quotaForecast,groupQuotaPace,countdown,elapsed,resetDate,errorMessage,connectPreferences,get language(){return language;},setLanguage(value){language=value==='zh-CN'||value==='zh-TW'?value:'en';if(language!=='en')lastZh=language;},toggle(){language=language==='en'?(lastZh||'zh-TW'):'en';return language;}};
+  function modelPricing(model){
+    const s=String(model||'').toLowerCase();
+    if(!s)return null;
+    if(/claude.*opus.*5/.test(s))return {in:4,read:0.2,write:5,out:20};
+    if(/claude.*sonnet.*5/.test(s))return {in:2,read:0.1,write:2.5,out:10};
+    if(/claude.*opus/.test(s))return {in:15,read:1.5,write:18.75,out:75};
+    if(/claude.*sonnet/.test(s))return {in:3,read:0.3,write:3.75,out:15};
+    if(/claude.*haiku/.test(s))return {in:0.8,read:0.08,write:1,out:4};
+    if(/carbon|argon/.test(s))return {in:4,read:0.2,write:4,out:20};
+    if(/neon/.test(s))return {in:3,read:0.15,write:3,out:15};
+    if(/hydrogen/.test(s))return {in:1.5,read:0.075,write:1.5,out:7.5};
+    if(/gemini.*3\.8.*flash/.test(s))return {in:0.75,read:0.075,write:0.75,out:3.75};
+    if(/gemini.*3\.5.*flash.*lite/.test(s))return {in:0.3,read:0.03,write:0.3,out:2.5};
+    if(/gemini.*3\.1.*flash.*lite/.test(s))return {in:0.25,read:0.025,write:0.25,out:1.5};
+    if(/gemini.*flash.*lite/.test(s))return {in:0.25,read:0.025,write:0.25,out:1.5};
+    if(/gemini.*flash/.test(s))return {in:0.3,read:0.03,write:0.3,out:2.5};
+    if(/gemini.*pro/.test(s))return {in:2,read:0.2,write:2,out:12};
+    if(/gpt-oss/.test(s))return {in:0.15,read:0.075,write:0.15,out:0.6};
+    if(/gpt-5|o3|o4/.test(s))return {in:2,read:0.5,write:2,out:8};
+    if(/gpt-4o-mini/.test(s))return {in:0.15,read:0.075,write:0.15,out:0.6};
+    if(/gpt-4o/.test(s))return {in:2.5,read:1.25,write:2.5,out:10};
+    return null;
+  }
+  function calcCost(model,r){
+    const p=modelPricing(model);if(!p||!r)return null;
+    const uncached=r.uncached??r.uncachedTokens??0,read=r.cacheRead??r.cachedTokens??0,write=r.cacheWrite??r.cacheWriteTokens??0,out=r.output??r.outputTokens??0;
+    return (uncached*p.in+read*p.read+write*(p.write??p.in)+out*p.out)/1e6;
+  }
+  function sumUsageCost(days,from,to,disabled){
+    if(!Array.isArray(days))return null;
+    let total=0,matched=false;
+    for(const day of days){
+      if((from&&day.date<from)||(to&&day.date>to))continue;
+      for(const [model,r]of Object.entries(day.models||{})){
+        if(disabled&&disabled.has(model))continue;
+        const c=calcCost(model,r);
+        if(c!==null){total+=c;matched=true;}
+      }
+    }
+    return matched?total:null;
+  }
+  function formatUsd(n){
+    if(typeof n!=='number'||!Number.isFinite(n))return '—';
+    if(n===0)return '$0.00';
+    if(n<0.01)return `$${n.toFixed(4)}`;
+    if(n<100)return `$${n.toFixed(2)}`;
+    return `$${n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  }
+  return {mountLanguagePicker,normalizeSpeedStyle,connectSpeedStyle,normalizeUsageScope,connectUsageScope,minimalTrail,t,rateNote,quotaGroupKind,quotaGroupLabel,chooseQuotaGroup,quotaWindows,quotaRemaining,shortEta,quotaForecast,groupQuotaPace,modelPricing,calcCost,sumUsageCost,formatUsd,countdown,elapsed,resetDate,errorMessage,connectPreferences,get language(){return language;},setLanguage(value){language=value==='zh-CN'||value==='zh-TW'?value:'en';if(language!=='en')lastZh=language;},toggle(){language=language==='en'?(lastZh||'zh-TW'):'en';return language;}};
 };

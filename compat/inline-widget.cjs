@@ -993,10 +993,10 @@ module.exports = function installAgPulseInlineWidget() {
       .speed-unit{font-size:11px;font-weight:400;color:var(--pulse-muted)}.speed-unit[hidden]{display:none!important}
       .speed-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--pulse-separator);font-size:11px;color:var(--pulse-muted);font-variant-numeric:tabular-nums}.speed-meta span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .speed-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;font-size:11px;color:var(--pulse-muted);font-variant-numeric:tabular-nums}#speed-basis-tag{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#speed-basis-tag:empty{display:none}#samples{flex:none;white-space:nowrap;margin-left:auto}
-      .heading.cache-hero{display:block;padding-bottom:9px;margin-bottom:0}.cache-hero-main{display:flex;flex-direction:column;gap:3px}.cache-hero-value{display:flex;align-items:baseline;justify-content:space-between;gap:8px;line-height:1.1}.cache-hero-total{display:inline-flex;align-items:baseline;gap:5px;min-width:0}#cache-coverage{font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--pulse-foreground)}#cache-coverage-unit{font-size:12px;font-weight:500}.rate-pill{display:inline-flex;align-items:center;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:600;color:var(--pulse-accent);background:color-mix(in srgb,var(--pulse-accent) 14%,transparent);font-variant-numeric:tabular-nums}
+      .heading.cache-hero{display:block;padding-bottom:9px;margin-bottom:0}.cache-hero-main{display:flex;flex-direction:column;gap:3px}.cache-hero-value{display:flex;align-items:baseline;justify-content:space-between;gap:8px;line-height:1.1}.cache-hero-total{display:inline-flex;align-items:baseline;gap:5px;min-width:0}#cache-coverage{font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--pulse-foreground)}#cache-coverage-unit{font-size:12px;font-weight:500}.cache-pills{display:inline-flex;align-items:center;gap:5px;flex:none}.cost-pill{display:inline-flex;align-items:center;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:550;color:var(--pulse-label);background:var(--pulse-hover);font-variant-numeric:tabular-nums}.cost-pill[hidden]{display:none}.rate-pill{display:inline-flex;align-items:center;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:600;color:var(--pulse-accent);background:color-mix(in srgb,var(--pulse-accent) 14%,transparent);font-variant-numeric:tabular-nums}
       .cache-meter{display:flex;gap:2px;height:4px;border-radius:999px;background:var(--pulse-track);overflow:hidden;margin-top:8px}.cache-meter i{display:block;height:100%;width:0;min-width:0}#cache-seg-read{background:var(--pulse-accent)}#cache-seg-miss{background:color-mix(in srgb,var(--pulse-emphasis) 42%,var(--pulse-track))}#cache-seg-out{background:var(--pulse-muted);opacity:.55}
       #usage-entry{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-top:9px;margin-top:10px;border-top:1px solid var(--pulse-separator)}#usage-entry[hidden]{display:none}
-      .usage-summary{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1 1 auto}.usage-summary>div{min-width:0}.usage-label{font-size:11px;line-height:1.25;color:var(--pulse-muted);white-space:nowrap}.usage-val{display:flex;align-items:baseline;gap:2px;white-space:nowrap;line-height:1.3}.usage-summary strong{font-size:13px;font-weight:600;color:var(--pulse-foreground);font-variant-numeric:tabular-nums}.usage-unit{font-size:11px;color:var(--pulse-muted)}
+      .usage-summary{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1 1 auto}.usage-summary>div{min-width:0}.usage-label{font-size:11px;line-height:1.25;color:var(--pulse-muted);white-space:nowrap}.usage-val{display:flex;align-items:baseline;gap:2px;white-space:nowrap;line-height:1.3}.usage-summary strong{font-size:13px;font-weight:600;color:var(--pulse-foreground);font-variant-numeric:tabular-nums}.usage-unit{font-size:11px;color:var(--pulse-muted)}.usage-cost{font-size:10px;line-height:1.3;color:var(--pulse-muted);font-variant-numeric:tabular-nums;white-space:nowrap}.usage-cost:empty{display:none}
       #open-usage{display:inline-flex;align-items:center;gap:4px;flex:none;padding:4px 6px;border:0;border-radius:5px;background:transparent;color:var(--pulse-accent);font:inherit;font-size:11px;font-weight:550;white-space:nowrap;transition:background-color 120ms ease,transform 120ms ease}#open-usage:hover{background:var(--pulse-hover)}#open-usage:active{transform:scale(.98)}#open-usage svg{width:12px;height:12px;flex:none}
       .heading.context-hero{padding-bottom:6px;margin-bottom:6px;border-bottom:0}.context-hero-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}#context-summary{font-size:20px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}#context-tokens{font-size:11px;color:var(--pulse-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
       .quota-bar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid var(--pulse-separator)}.quota-actions{display:flex;align-items:center;gap:6px}
@@ -1046,7 +1046,7 @@ module.exports = function installAgPulseInlineWidget() {
       <div class="speed-meta" id="speed-meta"><span id="speed-times">—</span><span id="tokens">—</span></div>
       <div class="speed-foot" id="speed-foot"><span id="speed-basis-tag"></span><span id="samples">—</span></div>
     </section><section class="card" id="cache-card" role="region" data-i18n-aria="cacheTitle" aria-label="Token cache" hidden>
-      <div class="heading cache-hero"><div class="cache-hero-main"><div class="hero-label">${svg('cache')}<span data-i18n="cacheTitle">Token cache</span></div><div class="cache-hero-value"><span class="cache-hero-total" id="cache-hero-total"><strong id="cache-coverage">—</strong><span class="speed-unit" id="cache-coverage-unit">toks</span></span><span class="rate-pill" id="cache-detail-rate">—</span></div></div><div class="cache-meter" aria-hidden="true"><i id="cache-seg-read"></i><i id="cache-seg-miss"></i><i id="cache-seg-out"></i></div></div>
+      <div class="heading cache-hero"><div class="cache-hero-main"><div class="hero-label">${svg('cache')}<span data-i18n="cacheTitle">Token cache</span></div><div class="cache-hero-value"><span class="cache-hero-total" id="cache-hero-total"><strong id="cache-coverage">—</strong><span class="speed-unit" id="cache-coverage-unit">toks</span></span><span class="cache-pills"><span class="cost-pill" id="cache-cost-pill" hidden></span><span class="rate-pill" id="cache-detail-rate">—</span></span></div></div><div class="cache-meter" aria-hidden="true"><i id="cache-seg-read"></i><i id="cache-seg-miss"></i><i id="cache-seg-out"></i></div></div>
       <dl class="stats-grid cache-stats">${[['cacheRead','cache-read'],['cacheMiss','cache-miss'],['cacheOutput','cache-output']].map(([key,id])=>`<div id="${id}-cell"><dt data-i18n="${key}">${t(key)}</dt><dd><strong id="${id}">—</strong><span class="speed-unit" id="${id}-unit" hidden> toks</span></dd></div>`).join('')}<div id="cache-write-row" class="span-row" hidden><dt data-i18n="cacheWrite">${t('cacheWrite')}</dt><dd id="cache-write">—</dd></div><div class="span-row" id="task-own-row" hidden><dt data-i18n="taskOwn">${t('taskOwn')}</dt><dd id="task-own">—</dd></div><div class="span-row" id="task-subagents-row" hidden><dt id="task-subagents-label"></dt><dd id="task-subagents">—</dd></div></dl><p class="footnote" id="cache-note" hidden></p>
     </section><section class="card context-card" id="context-card" role="region" data-i18n-aria="context" hidden>
       <div class="heading context-hero"><span class="hero-label">${svg('context')}<span data-i18n="context">Context window</span></span><span class="tag" id="context-model">—</span></div>
@@ -1099,7 +1099,14 @@ module.exports = function installAgPulseInlineWidget() {
     for(const button of root.querySelectorAll('[data-speed-style-choice]'))button.addEventListener('click',()=>void speedStyle.choose(button.dataset.speedStyleChoice));
     if(window.__agPulseUsageFactory){
       const section=document.createElement('div');section.id='usage-entry';section.hidden=true;
-      setMarkup(section,'<div class="usage-summary"><div><div class="usage-label" id="usage-today-label"></div><div class="usage-val"><strong id="usage-today"></strong><span class="usage-unit" id="usage-today-unit">toks</span></div></div><div><div class="usage-label" id="usage-month-label"></div><div class="usage-val"><strong id="usage-month"></strong><span class="usage-unit" id="usage-month-unit">toks</span></div></div></div><button type="button" id="open-usage"><span id="usage-open-label"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>');$('cache-card').append(section);
+      setMarkup(section,'<div class="usage-summary"><div><div class="usage-label" id="usage-today-label"></div><div class="usage-val"><strong id="usage-today"></strong><span class="usage-unit" id="usage-today-unit">toks</span></div><div class="usage-cost" id="usage-today-cost"></div></div><div><div class="usage-label" id="usage-month-label"></div><div class="usage-val"><strong id="usage-month"></strong><span class="usage-unit" id="usage-month-unit">toks</span></div><div class="usage-cost" id="usage-month-cost"></div></div></div><button type="button" id="open-usage"><span id="usage-open-label"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>');$('cache-card').append(section);
+      const syncUsageCosts=u=>{
+        const td=u?.today,days=u?.days;
+        const todayUsd=td?language.sumUsageCost(days,td,td):null;
+        const monthUsd=td?language.sumUsageCost(days,td.slice(0,7)+'-01',td):null;
+        text('usage-today-cost',todayUsd!==null?`≈ ${language.formatUsd(todayUsd)}`:'');
+        text('usage-month-cost',monthUsd!==null?`≈ ${language.formatUsd(monthUsd)}`:'');
+      };
       usageDashboard=window.__agPulseUsageFactory({root,language,setMarkup,hostLabel:surface?.usageHostLabel||'Antigravity',guideDismissed:usageGuideDismissed,onDismissGuide:async()=>{const saved=await window.agPulseHost.setPreferences({usageGuideDismissed:true});if(saved?.usageGuideDismissed!==true)throw Error('Usage guide could not be saved');syncGuide(saved);},onLanguage:next=>preferences.choose(next),onRefresh:()=>refreshManually(true),onScope:async next=>{
         const ticket=++scopeRequestEpoch,save=usageScope.choose(next);
         try{
@@ -1108,6 +1115,7 @@ module.exports = function installAgPulseInlineWidget() {
             if(data)data={...data,usage:result.usage};
             text('usage-today',compact(result.usage.todayTokens));text('usage-today-unit',tokUnit(result.usage.todayTokens));
             text('usage-month',compact(result.usage.monthTokens));text('usage-month-unit',tokUnit(result.usage.monthTokens));
+            syncUsageCosts(result.usage);
             usageDashboard?.update(result.usage);
           }
         }finally{await save;}
@@ -1128,6 +1136,11 @@ module.exports = function installAgPulseInlineWidget() {
       const available=Boolean(data.usage);hidden($('usage-entry'),!available);
       text('usage-today',compact(data.usage?.todayTokens));text('usage-today-unit',tokUnit(data.usage?.todayTokens));
       text('usage-month',compact(data.usage?.monthTokens));text('usage-month-unit',tokUnit(data.usage?.monthTokens));
+      const td=data.usage?.today,days=data.usage?.days;
+      const todayUsd=td?language.sumUsageCost(days,td,td):null;
+      const monthUsd=td?language.sumUsageCost(days,td.slice(0,7)+'-01',td):null;
+      text('usage-today-cost',todayUsd!==null?`≈ ${language.formatUsd(todayUsd)}`:'');
+      text('usage-month-cost',monthUsd!==null?`≈ ${language.formatUsd(monthUsd)}`:'');
       usageDashboard.update(data.usage);
     }
     if(parked||!composer)return;
@@ -1234,6 +1247,16 @@ module.exports = function installAgPulseInlineWidget() {
     text('cache-total',hasTotal?`${compact(tokens.totalTokens)} tok`:'— tok');
     text('cache-coverage',hasTotal?(tokens.totalTokens>=1e9?compactDetail(tokens.totalTokens):count(tokens.totalTokens)):'—');
     text('cache-coverage-unit',hasTotal?tokUnit(tokens.totalTokens):'toks');
+    const sessionCostModel=context?.model||speed?.model||currentComposerModel();
+    const sessionUsd=hasTotal?language.calcCost(sessionCostModel,tokens):null;
+    const costPill=$('cache-cost-pill');
+    if(costPill){
+      hidden(costPill,sessionUsd===null);
+      if(sessionUsd!==null){
+        text('cache-cost-pill',`≈ ${language.formatUsd(sessionUsd)}`);
+        attribute(costPill,'title',`${sessionCostModel||'Model'}: ${language.formatUsd(sessionUsd)}`);
+      }
+    }
     attribute($('cache-hero-total'),'title',hasTotal&&tokens.totalTokens>=1e9?`${count(tokens.totalTokens)} ${tokUnit(tokens.totalTokens)}`:null);
     const inputCoverage={uncachedTokens:'uncachedRequests',cachedTokens:'cachedRequests',cacheWriteTokens:'cacheWriteRequests'};
     for(const [field,id,labelKey]of[['cachedTokens','cache-read','cacheRead'],['uncachedTokens','cache-miss','cacheMiss'],['outputTokens','cache-output','cacheOutput']]) {
