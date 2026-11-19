@@ -154,25 +154,3 @@ test('usageScope persists independently, defaults cleanly and validates choices'
   fail=true;await scopeCtrl.choose('account');assert.equal(scopeCtrl.scope,'account');assert.equal(scopeCtrl.error,true);
   scopeCtrl.dispose();
 });
-
-test('neonMascot defaults off without altering legacy keys, persists independently and validates choices',async t=>{
-  const {file,store}=await fixture(t);
-  const language=create(null);
-  assert.equal(language.normalizeNeonMascot(undefined),'off');
-  assert.equal(language.normalizeNeonMascot('on'),'on');
-  assert.equal(language.normalizeNeonMascot('yes'),'off');
-  await store.set({neonMascot:'on'});
-  let saved=await new PreferencesStore({file}).get();
-  assert.equal(saved.neonMascot,'on');assert.equal(saved.language,null);
-  await store.set({language:'zh-CN'});await store.set({neonMascot:'off'});
-  saved=await new PreferencesStore({file}).get();
-  assert.equal(saved.neonMascot,'off');assert.equal(saved.language,'zh-CN');
-  for(const bad of [{neonMascot:'true'},{neonMascot:true},{neonMascot:null},{neonMascot:''}])await assert.rejects(store.set(bad));
-  let revision=1,fail=false;
-  const ctrl=language.connectNeonMascot({initial:null,write:async input=>{if(fail)throw Error('io');return {language:null,neonMascot:input.neonMascot,revision:++revision};}});
-  assert.equal(ctrl.enabled,false);
-  await ctrl.choose('on');assert.equal(ctrl.enabled,true);assert.equal(ctrl.error,false);
-  ctrl.sync({language:null,neonMascot:'off',revision:1});assert.equal(ctrl.enabled,true);
-  fail=true;await ctrl.choose('off');assert.equal(ctrl.enabled,false);assert.equal(ctrl.error,true);
-  ctrl.dispose();
-});

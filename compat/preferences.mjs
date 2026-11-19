@@ -21,11 +21,6 @@ export function validateSpeedStyle(value) {
   return value;
 }
 const storedSpeedStyle=value=>value==='minimal'||value==='cat'?value:null;
-export function validateNeonMascot(value) {
-  if(!['off','on'].includes(value))throw new Error('Invalid neon mascot preference');
-  return value;
-}
-const storedNeonMascot=value=>['off','on'].includes(value)?value:undefined;
 
 export class PreferencesStore {
   constructor({file=join(dirname(platformPaths().settings),'preferences.json')}={}) {
@@ -37,40 +32,37 @@ export class PreferencesStore {
       const value=JSON.parse((await readFile(this.file,'utf8')).replace(/^\uFEFF/,''));
       if(value.schema!==1)throw new Error('Invalid preferences schema');
       const usageScope=storedUsageScope(value.usageScope);
-      const neonMascot=storedNeonMascot(value.neonMascot);
-      return {language:value.language===null?null:validateLanguage(value.language),languageGuideDismissed:value.languageGuideDismissed===true,usageGuideDismissed:value.usageGuideDismissed===true,speedStyle:storedSpeedStyle(value.speedStyle),...(usageScope?{usageScope}:{}),...(neonMascot?{neonMascot}:{}),revision:Number.isSafeInteger(value.revision)&&value.revision>=0?value.revision:0};
+      return {language:value.language===null?null:validateLanguage(value.language),languageGuideDismissed:value.languageGuideDismissed===true,usageGuideDismissed:value.usageGuideDismissed===true,speedStyle:storedSpeedStyle(value.speedStyle),...(usageScope?{usageScope}:{}),revision:Number.isSafeInteger(value.revision)&&value.revision>=0?value.revision:0};
     } catch(error) {
       if(error.code==='ENOENT')return {language:null,languageGuideDismissed:false,usageGuideDismissed:false,speedStyle:null,revision:0};
       throw new Error('Language preference could not be read');
     }
   }
   async set(input) {
-    if(!input||typeof input!=='object'||Array.isArray(input)||!Object.keys(input).length||Object.keys(input).some(key=>!['language','languageGuideDismissed','usageGuideDismissed','speedStyle','usageScope','neonMascot'].includes(key)))throw new Error('Invalid preferences request');
+    if(!input||typeof input!=='object'||Array.isArray(input)||!Object.keys(input).length||Object.keys(input).some(key=>!['language','languageGuideDismissed','usageGuideDismissed','speedStyle','usageScope'].includes(key)))throw new Error('Invalid preferences request');
     if(Object.hasOwn(input,'language'))validateLanguage(input.language);
     if(Object.hasOwn(input,'speedStyle'))validateSpeedStyle(input.speedStyle);
     if(Object.hasOwn(input,'usageScope'))validateUsageScope(input.usageScope);
-    if(Object.hasOwn(input,'neonMascot'))validateNeonMascot(input.neonMascot);
     if(Object.hasOwn(input,'languageGuideDismissed')&&input.languageGuideDismissed!==true)throw new Error('Invalid guide preference');
     if(Object.hasOwn(input,'usageGuideDismissed')&&input.usageGuideDismissed!==true)throw new Error('Invalid usage guide preference');
     const operation=this.queue.then(async()=>{
       await mkdir(dirname(this.file),{recursive:true});
-      let prior=0,previous={language:null,languageGuideDismissed:false,usageGuideDismissed:false,speedStyle:null,usageScope:undefined,neonMascot:undefined};
-      try {const value=JSON.parse((await readFile(this.file,'utf8')).replace(/^\uFEFF/,''));if(Number.isSafeInteger(value.revision))prior=value.revision;previous={language:['en','zh-CN','zh-TW'].includes(value.language)?value.language:null,languageGuideDismissed:value.languageGuideDismissed===true,usageGuideDismissed:value.usageGuideDismissed===true,speedStyle:storedSpeedStyle(value.speedStyle),usageScope:storedUsageScope(value.usageScope),neonMascot:storedNeonMascot(value.neonMascot)};}catch{}
+      let prior=0,previous={language:null,languageGuideDismissed:false,usageGuideDismissed:false,speedStyle:null,usageScope:undefined};
+      try {const value=JSON.parse((await readFile(this.file,'utf8')).replace(/^\uFEFF/,''));if(Number.isSafeInteger(value.revision))prior=value.revision;previous={language:['en','zh-CN','zh-TW'].includes(value.language)?value.language:null,languageGuideDismissed:value.languageGuideDismissed===true,usageGuideDismissed:value.usageGuideDismissed===true,speedStyle:storedSpeedStyle(value.speedStyle),usageScope:storedUsageScope(value.usageScope)};}catch{}
       const language=Object.hasOwn(input,'language')?input.language:previous.language;
       const languageGuideDismissed=previous.languageGuideDismissed||Object.hasOwn(input,'language')||input.languageGuideDismissed===true;
       const usageGuideDismissed=previous.usageGuideDismissed||input.usageGuideDismissed===true;
       const speedStyle=Object.hasOwn(input,'speedStyle')?input.speedStyle:previous.speedStyle;
       const usageScope=Object.hasOwn(input,'usageScope')?input.usageScope:previous.usageScope;
-      const neonMascot=Object.hasOwn(input,'neonMascot')?input.neonMascot:previous.neonMascot;
       const revision=Math.max(Date.now(),prior+1);
       const temporary=this.file+'.'+process.pid+'.'+randomUUID()+'.tmp';
       try {
         const handle=await open(temporary,'wx',0o600);
-        try {await handle.writeFile(JSON.stringify({schema:1,language,languageGuideDismissed,usageGuideDismissed,speedStyle,...(usageScope?{usageScope}:{}),...(neonMascot?{neonMascot}:{}),revision})+'\n','utf8');await handle.sync();}
+        try {await handle.writeFile(JSON.stringify({schema:1,language,languageGuideDismissed,usageGuideDismissed,speedStyle,...(usageScope?{usageScope}:{}),revision})+'\n','utf8');await handle.sync();}
         finally {await handle.close();}
         await rename(temporary,this.file);
       } finally {await rm(temporary,{force:true});}
-      return {language,languageGuideDismissed,usageGuideDismissed,speedStyle,...(usageScope?{usageScope}:{}),...(neonMascot?{neonMascot}:{}),revision};
+      return {language,languageGuideDismissed,usageGuideDismissed,speedStyle,...(usageScope?{usageScope}:{}),revision};
     });
     this.queue=operation.catch(()=>{});
     return operation;
