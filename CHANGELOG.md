@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.7 — 2026-11-19
+
+- Add the **Neon (氖龙) interactive plush mascot Easter egg** in `compat/inline-widget.cjs`: when switching to a Neon model (e.g. `Orchestrator (Neon)`, `Gemini 4 Neon`), a compact baked two-frame WebP plushie (`~10.8 KB` total, zero external network assets) peeks out from the top-right border of the composer card inside an isolated Shadow DOM stage with zero host style mutations.
+- Support tactile micro-interactions without interfering with chat controls: custom frosted `✦ 氖龙` hover speech bubble (replacing native tooltips), press-and-rub **headpat squish & damped spring jelly wobble**, quick-click toggle between sitting out and tucked-in peeking (persisted in `localStorage`), proximity curiosity head-tilt, rhythmic typing companion micro-nods, natural idle blinking, and dark-mode neon violet rim lighting.
+- Keep scrolling and host UI unobstructed: ignore normal scrolling chat links/buttons inside message scrollers while still automatically hiding for genuine floating/fixed overlays, narrow cards (`< 320px`), subagent panes, or open Usage Dashboard modals, and cleanly tear down on `park()` / `dispose()`.
+
 ## 0.9.6 — 2026-11-19
 
 - Add managed macOS launcher wrapper support for **Antigravity Desktop 2.33.0+**: `manage.py install` and the active sidecar runtime now create and self-heal `~/Applications/Antigravity (Dashboard).app` (preserving the signed `/Applications/Antigravity.app` bundle untouched, copying its icon, setting `LSUIElement`, and prompting to quit & relaunch if Antigravity is already running without remote debugging) so macOS users can launch from Spotlight or Dock without running terminal commands; `uninstall` and `--panel-only` cleanly remove only dashboard-managed wrappers.
