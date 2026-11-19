@@ -151,7 +151,10 @@ def install(panel_only=False, legacy_loader=False):
     lc = launch_config()
     launch_result = {'configured': False, 'supported': False, 'entrypoints': []}
     if not panel_only and not legacy_loader:
-        launch_result, managed = lc.configure_desktop_launch(home=HOME, local=LOCAL, managed=settings.get('managedLaunch'))
+        launch_result, managed = lc.configure_desktop_launch(
+            home=HOME, local=LOCAL, managed=settings.get('managedLaunch'),
+            app_asar=APP, profile=_paths['profile'],
+        )
     else:
         managed = lc.remove_desktop_launch(home=HOME, local=LOCAL, managed=settings.get('managedLaunch'))
     if managed:
@@ -164,7 +167,10 @@ def install(panel_only=False, legacy_loader=False):
     print('Installed:', PLUGIN)
     if not panel_only and not legacy_loader and launch_result['configured']:
         print('Configured Antigravity launch entry points with loopback debugging flags:', ', '.join(launch_result['entrypoints']))
-        print('Fully quit and reopen Antigravity from your shortcut/launcher to start the plugin runtime. App updates no longer overwrite the inline adapter.')
+        if sys.platform == 'darwin':
+            print('Fully quit Antigravity (Command+Q), then open "Antigravity (Dashboard)" from ~/Applications (Spotlight / Dock) to start with the inline widget.')
+        else:
+            print('Fully quit and reopen Antigravity from your shortcut/launcher to start the plugin runtime. App updates no longer overwrite the inline adapter.')
     elif not panel_only and not legacy_loader and host['requiresDebugFlag']:
         print('Note: Antigravity', host['version'] or '2.33+', 'requires --remote-debugging-port=0 --remote-debugging-address=127.0.0.1 for the inline widget.')
         print('Fully quit Antigravity and run `python manage.py launch` (or `python3 manage.py launch`) to start with the inline widget.')
@@ -221,43 +227,96 @@ def uninstall():
     print('Antigrative Dashboard removed. Backups and diagnostic logs are retained for recovery.')
     print('Fully quit and reopen Antigravity to unload the UI adapter.')
 
-def launch(workspace=None, exe=None, spawn=subprocess.Popen):
+def _resolved_app_and_profile(settings=None, explicit_app=False):
+    settings = json_read(SETTINGS) if settings is None else settings
+    app = APP
+    if not explicit_app and not app.is_file() and isinstance(settings.get('appResources'), str) and settings['appResources']:
+        candidate = Path(settings['appResources']).expanduser() / 'app.asar'
+        if candidate.is_file():
+            app = candidate
+    if os.environ.get('AG_PULSE_PROFILE'):
+        profile = Path(os.environ['AG_PULSE_PROFILE']).expanduser()
+    elif isinstance(settings.get('profile'), str) and settings['profile']:
+        profile = Path(settings['profile']).expanduser()
+    else:
+        profile = _paths['profile']
+    return app, profile
+
+
+def launch(workspace=None, exe=None, restart=False, spawn=subprocess.Popen, runner=subprocess.run,
+           platform=None, open_binary='/usr/bin/open', explicit_app=False):
     lc = launch_config()
+    target_platform = platform or sys.platform
+    settings = json_read(SETTINGS)
+    app_asar, profile = _resolved_app_and_profile(settings, explicit_app=explicit_app)
     if exe is not None:
         executable = Path(exe).expanduser().resolve()
         if not executable.is_file():
             raise RuntimeError(f'Antigravity desktop executable not found: {executable}')
     else:
-        executable = lc.desktop_executable(APP)
+        executable = lc.desktop_executable(app_asar, platform=target_platform)
         if executable is None or not executable.is_file():
             raise RuntimeError('Antigravity desktop app not found. Use --exe /path/to/Antigravity or --app-path /path/to/resources/app.asar.')
+    bundle = lc.macos_app_bundle(executable) if target_platform == 'darwin' else None
+    if target_platform == 'darwin':
+        running = lc.running_desktop_pids(executable, platform=target_platform, runner=runner)
+        if running:
+            debug_ready = lc.has_active_debug_port(profile)
+            if debug_ready and not restart:
+                if workspace is not None and bundle is not None and (
+                    open_binary is True or (isinstance(open_binary, (str, Path)) and Path(open_binary).is_file())
+                ):
+                    open_exe = '/usr/bin/open' if open_binary is True else str(open_binary)
+                    env = dict(os.environ)
+                    env.pop('ELECTRON_RUN_AS_NODE', None)
+                    process = spawn(
+                        [open_exe, '-a', str(bundle), str(Path(workspace).expanduser().resolve())],
+                        env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                    print('Antigravity is already running with remote debugging enabled; opened workspace in existing instance.')
+                    return process
+                print('Antigravity is already running with remote debugging enabled.')
+                return None
+            if not restart:
+                raise RuntimeError(
+                    'Antigravity is already running without remote debugging enabled. '
+                    'Fully quit it first (Command+Q), or re-run with --restart to quit and relaunch.'
+                )
+            if bundle is None or not lc.quit_macos_app(bundle, executable, runner=runner):
+                raise RuntimeError(
+                    'Antigravity did not finish quitting in time. Press Command+Q to quit it, then re-run launch.'
+                )
     env = dict(os.environ)
     env.pop('ELECTRON_RUN_AS_NODE', None)
-    args = [str(executable), *lc.DEBUG_ARGS]
-    if workspace is not None:
-        args.append(str(Path(workspace).expanduser().resolve()))
+    args = lc.build_launch_command(
+        executable, workspace=workspace, platform=target_platform,
+        use_open=(exe is None), open_binary=open_binary,
+    )
     options = dict(env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if sys.platform == 'win32':
+    if target_platform == 'win32':
         options['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     else:
         options['start_new_session'] = True
     process = spawn(args, **options)
-    print('Launched Antigravity with loopback debugging flags:', executable)
+    print('Launched Antigravity with loopback debugging flags:', bundle or executable)
     return process
 
-def status():
+def status(explicit_app=False):
     installed = (PLUGIN / 'plugin.json').is_file()
     enabled = installed and json_read(CONFIG).get('plugins', {}).get('antigravity-pulse', {}).get('enabled', True)
     health_file = HOME / '.gemini' / 'antigravity' / 'sidecar_data' / 'antigravity-pulse' / 'panel' / 'data' / 'integration-state.json'
+    settings = json_read(SETTINGS)
+    app_asar, _ = _resolved_app_and_profile(settings, explicit_app=explicit_app)
     lc = launch_config()
-    host = lc.inspect_host_archive(APP)
+    host = lc.inspect_host_archive(app_asar)
     print(json.dumps({'installed': installed, 'enabled': bool(enabled), 'pluginDirectory': str(PLUGIN),
-                      'integrationMode': json_read(SETTINGS).get('mode', 'legacy'),
+                      'integrationMode': settings.get('mode', 'legacy'),
                       'hostVersion': host['version'],
                       'hostRequiresDebugFlag': host['requiresDebugFlag'],
                       'launchConfiguration': lc.inspect_desktop_launch(home=HOME, local=LOCAL),
                       'inlineIntegration': json_read(health_file, None),
-                      'toolbarAdapterRecoverable': APP.exists() and original_for_current(APP.read_bytes()) is not None}, indent=2))
+                      'toolbarAdapterRecoverable': app_asar.exists() and original_for_current(app_asar.read_bytes()) is not None}, indent=2))
 
 def package(output=None):
     version = json_read(SOURCE / 'plugin.json')['version']
@@ -295,13 +354,15 @@ def main():
     p.add_argument('--exe', type=Path, help='Path to the Antigravity Desktop executable')
     p.add_argument('--workspace', type=Path, help='Optional workspace path to open')
     p.add_argument('--app-path', type=Path, help='Path to the desktop app resources/app.asar for a custom installation')
+    p.add_argument('--restart', action='store_true', help='Gracefully quit a running macOS instance without remote debugging before relaunching')
     p = sub.add_parser('install-cli', help='Install the official CLI statusLine adapter independently of desktop')
     p.add_argument('--node', help='Node.js 20+ executable (defaults to PATH)')
     p.add_argument('--language', choices=('en', 'zh-CN', 'zh-TW'), help='Override shared desktop language choice')
     for action in ('uninstall-cli', 'status-cli'): sub.add_parser(action)
     p = sub.add_parser('package'); p.add_argument('--output')
     args = parser.parse_args()
-    if args.action in ('install', 'status', 'launch') and getattr(args, 'app_path', None):
+    explicit_app = bool(args.action in ('install', 'status', 'launch') and getattr(args, 'app_path', None))
+    if explicit_app:
         APP = args.app_path.expanduser().resolve()
     try:
         if args.action in ('install-cli', 'uninstall-cli', 'status-cli'):
@@ -316,8 +377,8 @@ def main():
         elif args.action == 'enable': set_enabled(True)
         elif args.action == 'disable': set_enabled(False)
         elif args.action == 'uninstall': uninstall()
-        elif args.action == 'launch': launch(args.workspace, args.exe)
-        elif args.action == 'status': status()
+        elif args.action == 'launch': launch(args.workspace, args.exe, restart=args.restart, explicit_app=explicit_app)
+        elif args.action == 'status': status(explicit_app=explicit_app)
         elif args.action == 'package': package(args.output)
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
         print(f'Antigrative Dashboard: {error}', file=sys.stderr)

@@ -253,6 +253,130 @@ class LaunchConfigTests(unittest.TestCase):
                 self.assertEqual(args[-1], str(ws.resolve()))
                 self.assertNotIn('ELECTRON_RUN_AS_NODE', kwargs['env'])
 
+    def test_macos_launcher_app_configure_preserves_unmanaged_and_rolls_back(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / 'home'
+            sys_apps = root / 'Applications'
+            target_app = sys_apps / 'Antigravity.app'
+            (target_app / 'Contents' / 'MacOS').mkdir(parents=True)
+            (target_app / 'Contents' / 'Resources').mkdir(parents=True)
+            (target_app / 'Contents' / 'MacOS' / 'Antigravity').write_bytes(b'bin')
+            (target_app / 'Contents' / 'Resources' / 'app.asar').write_bytes(b'asar')
+            (target_app / 'Contents' / 'Resources' / 'electron.icns').write_bytes(b'ICNS')
+
+            res, managed = lc.configure_desktop_launch(
+                platform='darwin', home=home, env={},
+                app_asar=target_app / 'Contents' / 'Resources' / 'app.asar',
+                profile=home / 'Library' / 'Application Support' / 'Antigravity',
+                system_app_dirs=[sys_apps],
+            )
+            self.assertTrue(res['configured'])
+            self.assertTrue(res['supported'])
+            bundle = home / 'Applications' / lc.MACOS_LAUNCHER_NAME
+            self.assertEqual(res['entrypoints'], [str(bundle)])
+            self.assertEqual(managed['macosLauncherApp'], str(bundle))
+            plist = (bundle / 'Contents' / 'Info.plist').read_text(encoding='utf-8')
+            launcher = (bundle / 'Contents' / 'MacOS' / 'launcher').read_text(encoding='utf-8')
+            self.assertIn(lc.MACOS_MANAGED_PLIST_KEY, plist)
+            self.assertIn('<key>LSUIElement</key>', plist)
+            self.assertIn('<string>app.icns</string>', plist)
+            self.assertEqual((bundle / 'Contents' / 'Resources' / 'app.icns').read_bytes(), b'ICNS')
+            self.assertIn(lc.DESKTOP_MANAGED_MARKER, launcher)
+            self.assertIn('--remote-debugging-port=0 --remote-debugging-address=127.0.0.1', launcher)
+            self.assertIn('/usr/bin/open -a', launcher)
+            self.assertTrue(lc.inspect_desktop_launch(platform='darwin', home=home, env={})['configured'])
+
+            reverted = lc.remove_desktop_launch(platform='darwin', home=home, env={}, managed=managed)
+            self.assertEqual(reverted, {})
+            self.assertFalse(bundle.exists())
+
+            # Unmanaged user-created bundle with the same name must never be overwritten or removed.
+            (bundle / 'Contents' / 'MacOS').mkdir(parents=True)
+            (bundle / 'Contents' / 'Info.plist').write_text('<plist><dict/></plist>', encoding='utf-8')
+            custom_script = '#!/bin/sh\necho custom\n'
+            (bundle / 'Contents' / 'MacOS' / 'launcher').write_text(custom_script, encoding='utf-8')
+            res2, managed2 = lc.configure_desktop_launch(
+                platform='darwin', home=home, env={}, system_app_dirs=[sys_apps]
+            )
+            self.assertFalse(res2['configured'])
+            self.assertEqual((bundle / 'Contents' / 'MacOS' / 'launcher').read_text(encoding='utf-8'), custom_script)
+            lc.remove_desktop_launch(platform='darwin', home=home, env={}, managed=managed2)
+            self.assertTrue(bundle.exists())
+
+    def test_macos_launch_detects_running_instance_supports_restart_and_saved_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / 'home'
+            local = home / 'Library' / 'Application Support'
+            profile = local / 'Antigravity'
+            profile.mkdir(parents=True)
+            settings = local / 'AntigravityPulse' / 'settings.json'
+            custom_app = root / 'Custom' / 'Antigravity.app'
+            asar = custom_app / 'Contents' / 'Resources' / 'app.asar'
+            exe = custom_app / 'Contents' / 'MacOS' / 'Antigravity'
+            asar.parent.mkdir(parents=True)
+            exe.parent.mkdir(parents=True)
+            asar.write_bytes(build_asar({
+                'package.json': json.dumps({'version': '2.33.0'}).encode('utf-8'),
+                'dist/main.js': b"if (!app.commandLine.hasSwitch('remote-debugging-port')) { removeStaleActivePortFile(p); }",
+            }))
+            exe.write_bytes(b'macho')
+            manager.atomic_json(settings, {'appResources': str(asar.parent), 'profile': str(profile)})
+
+            class FakeProc:
+                def __init__(self, stdout='', returncode=0):
+                    self.stdout = stdout
+                    self.returncode = returncode
+
+            running = True
+            quit_calls = []
+            current_uid = os.getuid() if hasattr(os, 'getuid') else 501
+
+            def fake_runner(cmd, **kwargs):
+                nonlocal running
+                if cmd[0] == '/bin/ps':
+                    if running:
+                        line = f"  4201 {current_uid} {exe.as_posix()}\n  4202 {current_uid} {exe.as_posix()} --type=renderer\n"
+                        return FakeProc(line, 0)
+                    return FakeProc('', 0)
+                if cmd[0] == '/usr/bin/osascript':
+                    quit_calls.append(cmd)
+                    running = False
+                    return FakeProc('', 0)
+                return FakeProc('', 1)
+
+            spawned = []
+            def fake_spawn(args, **kwargs):
+                spawned.append((args, kwargs))
+                return object()
+
+            missing_default_app = root / 'NonExistent' / 'app.asar'
+            with patch.multiple(manager, HOME=home, LOCAL=local, SETTINGS=settings, APP=missing_default_app,
+                                PLUGIN=home / '.gemini' / 'config' / 'plugins' / 'antigravity-pulse',
+                                CONFIG=home / '.gemini' / 'config' / 'config.json',
+                                BACKUPS=local / 'Backups'):
+                # Running without DevToolsActivePort must fail clearly instead of silently doing nothing.
+                with self.assertRaisesRegex(RuntimeError, '--restart'):
+                    manager.launch(platform='darwin', spawn=fake_spawn, runner=fake_runner, open_binary=True)
+                self.assertEqual(spawned, [])
+
+                # With --restart, gracefully quits via osascript then launches via /usr/bin/open -a.
+                manager.launch(platform='darwin', restart=True, spawn=fake_spawn, runner=fake_runner, open_binary=True)
+                self.assertEqual(len(quit_calls), 1)
+                self.assertEqual(len(spawned), 1)
+                self.assertEqual(spawned[0][0], [
+                    '/usr/bin/open', '-a', str(custom_app), '--args',
+                    '--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1',
+                ])
+
+                # When running AND DevToolsActivePort is already active, do not error or relaunch.
+                running = True
+                (profile / 'DevToolsActivePort').write_text('57824\n/devtools/browser/abc\n', encoding='utf-8')
+                res = manager.launch(platform='darwin', spawn=fake_spawn, runner=fake_runner, open_binary=True)
+                self.assertIsNone(res)
+                self.assertEqual(len(spawned), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

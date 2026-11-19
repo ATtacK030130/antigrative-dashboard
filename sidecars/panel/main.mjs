@@ -88,7 +88,11 @@ const syncLaunchConfig = async (force = false) => {
   }
   if (force || !cachedLaunch || Date.now() - lastLaunchRepairAt >= 60000) {
     lastLaunchRepairAt = Date.now();
-    cachedLaunch = await ensureDesktopLaunchConfig({ settingsPath: paths.settings });
+    cachedLaunch = await ensureDesktopLaunchConfig({
+      settingsPath: paths.settings,
+      appResources: resolveHostResources(),
+      profile: paths.profile,
+    });
   }
   return cachedLaunch;
 };
@@ -113,13 +117,16 @@ const integration = new RuntimeUi({
     const launch = await syncLaunchConfig();
     if (host.requiresDebugFlag || (missingPortTicks >= 2 && store.serverPid)) {
       const configured = Boolean(launch?.configured);
+      const macConfigured = configured && process.platform === 'darwin';
       return {
         reason: 'debug-port-disabled',
         ...(host.version ? { hostVersion: host.version } : {}),
         launchConfigured: configured,
-        message: configured
-          ? 'Host started without --remote-debugging-port=0; launch shortcuts are configured—fully quit and reopen Antigravity (or run python manage.py launch).'
-          : 'Antigravity 2.33+ requires --remote-debugging-port=0 --remote-debugging-address=127.0.0.1 (or python3 manage.py launch) for the inline widget.',
+        message: macConfigured
+          ? 'Host started without --remote-debugging-port=0; quit Antigravity (Command+Q) and open "Antigravity (Dashboard)" from ~/Applications (or run python3 manage.py launch --restart).'
+          : configured
+            ? 'Host started without --remote-debugging-port=0; launch shortcuts are configured—fully quit and reopen Antigravity (or run python manage.py launch).'
+            : 'Antigravity 2.33+ requires --remote-debugging-port=0 --remote-debugging-address=127.0.0.1 (or python3 manage.py launch) for the inline widget.',
       };
     }
     return null;

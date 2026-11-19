@@ -93,7 +93,7 @@ Antigravity 扩展目前尚未兼容。详见 [IDE 安装、更新、诊断和�
 
 Linux / macOS 使用 `python3 manage.py install` 或 `sh install.sh`，启停和卸载命令同样把 `python` 换成 `python3`。无需 sudo，不修改应用归档。
 
-> 模型选择旁的内嵌位置没有公开插件挂载接口。插件由标准 sidecar 通过本地回环渲染调试端口挂载控件，不修改 `resources/app.asar`。从 **Antigravity Desktop 2.33.0** 起需显式开启调试端口：`manage.py install` 与运行中的 sidecar 会自动为 Windows 快捷方式和 Linux `.desktop` 写入 `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1`（并在 App 更新覆盖后自愈）；macOS 或自定义启动可使用 `python3 manage.py launch`。原生侧面板在任何启动方式下均可用。
+> 模型选择旁的内嵌位置没有公开插件挂载接口。插件由标准 sidecar 通过本地回环渲染调试端口挂载控件，不修改 `resources/app.asar`。从 **Antigravity Desktop 2.33.0** 起需显式开启调试端口：`manage.py install` 与运行中的 sidecar 会自动为 Windows 快捷方式、Linux `.desktop` 与 macOS 用户自有启动器 `~/Applications/Antigravity (Dashboard).app`（不改动原版 `Antigravity.app` 签名，可直接拖入 Dock 或 Spotlight 启动）配置 `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` 并在更新后自愈；命令行可使用 `python3 manage.py launch`（macOS 如未先 `⌘Q` 退出，可加 `--restart` 自动优雅重开）。原生侧面板在任何启动方式下均可用。
 
 ### 手动安装
 

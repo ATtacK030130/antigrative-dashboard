@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   DESKTOP_MANAGED_MARKER,
+  MACOS_LAUNCHER_NAME,
+  MACOS_MANAGED_PLIST_KEY,
   ensureDesktopLaunchConfig,
   inspectDesktopLaunch,
   inspectHostArchive,
@@ -166,6 +168,58 @@ test('ensureDesktopLaunchConfig configures Linux desktop file without overwritin
     assert.equal((await inspectDesktopLaunch({ platform: 'linux', home, env: {} })).configured, true);
 
     assert.equal(mergeDesktopEntry('[Desktop Entry]\nExec=/bin/ag --remote-debugging-port=0 %U\n').includes(DESKTOP_MANAGED_MARKER), true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('ensureDesktopLaunchConfig creates and self-heals macOS launcher app without overwriting unmanaged apps', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-pulse-macos-'));
+  try {
+    const home = join(dir, 'home');
+    const sysApps = join(dir, 'Applications');
+    const targetApp = join(sysApps, 'Antigravity.app');
+    const settingsPath = join(home, 'Library', 'Application Support', 'AntigravityPulse', 'settings.json');
+    await mkdir(join(targetApp, 'Contents', 'MacOS'), { recursive: true });
+    await mkdir(join(targetApp, 'Contents', 'Resources'), { recursive: true });
+    await writeFile(join(targetApp, 'Contents', 'MacOS', 'Antigravity'), 'bin');
+    await writeFile(join(targetApp, 'Contents', 'Resources', 'app.asar'), 'asar');
+    await writeFile(join(targetApp, 'Contents', 'Resources', 'electron.icns'), 'ICNS');
+
+    const created = await ensureDesktopLaunchConfig({
+      platform: 'darwin',
+      home,
+      env: {},
+      settingsPath,
+      appResources: join(targetApp, 'Contents', 'Resources'),
+      profile: join(home, 'Library', 'Application Support', 'Antigravity'),
+      systemAppDirs: [sysApps],
+    });
+    const bundle = join(home, 'Applications', MACOS_LAUNCHER_NAME);
+    assert.deepEqual(created, { configured: true, repaired: true, supported: true, entrypoints: [bundle] });
+    const plist = await readFile(join(bundle, 'Contents', 'Info.plist'), 'utf8');
+    const script = await readFile(join(bundle, 'Contents', 'MacOS', 'launcher'), 'utf8');
+    assert.ok(plist.includes(MACOS_MANAGED_PLIST_KEY));
+    assert.ok(plist.includes('<key>LSUIElement</key>'));
+    assert.ok(script.includes(DESKTOP_MANAGED_MARKER));
+    assert.ok(script.includes('--remote-debugging-port=0 --remote-debugging-address=127.0.0.1'));
+    assert.equal(await readFile(join(bundle, 'Contents', 'Resources', 'app.icns'), 'utf8'), 'ICNS');
+    const saved = JSON.parse(await readFile(settingsPath, 'utf8'));
+    assert.equal(saved.managedLaunch.macosLauncherApp, bundle);
+
+    // Fast path when already configured.
+    const fast = await ensureDesktopLaunchConfig({ platform: 'darwin', home, env: {}, settingsPath, systemAppDirs: [sysApps] });
+    assert.deepEqual(fast, { configured: true, repaired: false, supported: true, entrypoints: [bundle] });
+    assert.equal((await inspectDesktopLaunch({ platform: 'darwin', home, env: {} })).configured, true);
+
+    // Unmanaged bundle with same name must not be overwritten.
+    await rm(bundle, { recursive: true, force: true });
+    await mkdir(join(bundle, 'Contents', 'MacOS'), { recursive: true });
+    await writeFile(join(bundle, 'Contents', 'Info.plist'), '<plist><dict/></plist>');
+    await writeFile(join(bundle, 'Contents', 'MacOS', 'launcher'), '#!/bin/sh\necho custom\n');
+    const unmanaged = await ensureDesktopLaunchConfig({ platform: 'darwin', home, env: {}, systemAppDirs: [sysApps] });
+    assert.deepEqual(unmanaged, { configured: false, repaired: false, supported: true, entrypoints: [bundle] });
+    assert.equal(await readFile(join(bundle, 'Contents', 'MacOS', 'launcher'), 'utf8'), '#!/bin/sh\necho custom\n');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
