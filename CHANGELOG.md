@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.9 — 2026-11-20
+
+- Eliminate redundant idle Windows `powershell.exe` / WMI process rescans across both the Desktop App (`AntigravityClient`) and standalone IDE (`IdeClient`): after the 15s discovery lease expires, verify the cached server's PID liveness (`isProcessAlive`) and loopback port reachability (`probeLoopbackPort`) first and renew the lease directly, only running a full process scan if the backend exited, closed its port, rejected credentials, or a forced refresh was requested.
+- Sanitize process-discovery command timeouts, failures, and malformed JSON (`discoveryCommandError`) across Windows and macOS so raw `Command failed: powershell.exe ...` command lines are never leaked to the UI, and apply the same error-whitelist fallback in Simplified Chinese (`zh-CN`) as in English and Traditional Chinese (`compat/i18n.cjs`).
+- Deduplicate connection/quota errors in the inline context card (`compat/inline-widget.cjs`): render global errors once in a dedicated `#quota-error` notice below the quota windows instead of repeating them inside both the 5-hour and weekly quota sections.
+
 ## 0.9.8 — 2026-11-19
 
 - Completely remove the Neon (氖龙) plush mascot Easter egg code, embedded WebP assets, and toggles from the standard release (`antigrative-dashboard-0.9.8.zip` and `antigrative-dashboard-ide-0.9.8.vsix`), keeping default downloads and in-app updates clean and lightweight while preserving all v0.9.6 macOS launcher ergonomics and v0.9.5 memory/backfill optimizations. Users who want the Neon Easter Egg can continue using the dedicated `v0.9.7` release.

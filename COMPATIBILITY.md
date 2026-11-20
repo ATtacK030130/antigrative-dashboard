@@ -29,6 +29,8 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-11-01 / **v0.8.17（Issue #27）**：Windows App 与 IDE 共用本机端口发现，排除 TUN 产生的伪监听行；备用查询兼容报告中的 `State: 0`，同时验证 PID、环回／通配地址、未连接远端及有效端口，拒绝 `Bound`、`Closed` 等状态。HTTP 日志与 renderer 端口只作为补查提示，不能代替进程归属证明；最新端口缺失时，不再被其他监听端口或复用的旧端口掩盖。正常路径保留 netstat，异常路径一次批量 PowerShell 查询，沿用超时、输出上限及客户端退避。本地合成回归与真实 Windows netstat／CIM 检查通过，已安装代码成功发现 App 接口并取得 `GetUserStatus` 响应；宿主停在登录引导页，未完成登录后控件验收。报告者的 TUN `State: 0` 原始环境仍需其复测。
 
+2026-11-20 / **v0.9.9**：修复 Windows 空闲期每 15 秒触发 `powershell.exe Get-CimInstance` 超时并在中简界面重复暴露原始命令行的问题。`AntigravityClient` 与 `IdeClient` 在 15 秒租期到期后优先通过本机 PID 存活检测（`process.kill(pid, 0)`）与 loopback 端口探活直接续租，避免空闲重扫 PowerShell/WMI；进程发现命令超时与解析异常统一脱敏为可读错误，简中 `errorMessage()` 补齐白名单兜底，内嵌额度卡全局错误收敛至单一 `#quota-error` 提示不再于 5h 与周额度下重复展示。本地验证：Node 499/499（498 pass, 1 skip）、IDE 68/68、Edge CDP 端到端及 Windows 本机实机续租验证通过。
+
 2026-11-19 / **v0.9.8**：彻底移除 Neon（氖龙）毛绒彩蛋代码、内嵌 WebP 资源与开关，确保默认下载与应用内更新保持纯净轻量，同时保留 v0.9.6 macOS 启动器与 v0.9.5 内存/历史补录优化；需要氖龙彩蛋的用户可继续使用专属 `v0.9.7` 彩蛋版。
 
 2026-11-19 / **v0.9.7（Neon 彩蛋版）**：在 `compat/inline-widget.cjs` 新增 **Neon（氖龙）毛绒玩偶交互彩蛋**：切换到含 Neon 的模型时，通过独立 Shadow DOM 裁剪舞台在会话栏外框右上角弹出内联双帧毛绒 WebP（约 `10.8 KB`，零外链、零宿主样式侵入），支持定制 `✦ 氖龙` 微磨砂气泡、按住摸头揉捏与阻尼果冻回弹、单击切换「缩回偷看 / 坐出来」（`localStorage` 持久化）、近场歪头、打字节奏陪伴及深色霓虹紫轮廓光；碰撞避让仅针对真实浮动/固定控件（忽略滚动消息区内的普通链接与按钮），并在窄窗、子代理及用量弹窗打开时自动安全隐藏。
@@ -44,7 +46,7 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-11-17 / **v0.9.1**：项目维护与 App 更新源迁移至 `ATtacK030130/antigrative-dashboard`（保留原有 IDE 扩展标识 `you-should-know-me.antigrative-dashboard-ide` 与本地数据目录）。新增像素猫 / 简约速度卡样式切换、额度消耗速率状态与重置前余量线性预测、当前额度周期实测用量参考、Token 用量「本机全部 / 当前账号」范围切换、以及跟随宿主 Appearance 字体的 `--pulse-font` / `--pulse-font-mono` 同步。已在 Windows 11 本机 **Antigravity Desktop 2.32.2** 通过宿主资源/SDK 检查与插件挂载（`v0.9.1`），并完成 Node 482/483（1 skip）、IDE 67/67、Python 95/95（1 skip）及 Edge CDP 端到端浏览器测试。
 
-专用包为 `antigrative-dashboard-ide-0.9.8.vsix`，安装入口与桌面 App 独立。
+专用包为 `antigrative-dashboard-ide-0.9.9.vsix`，安装入口与桌面 App 独立。
 Windows 11 / IDE 2.5.5（VS Code base 1.107.0）已用真实对话验证速率、缓存、上下文、重启历史恢复和窄宽布局。IDE 2.6.0 的控件挂载和真实对话数据已由用户验收；Linux/macOS 的登录后 IDE 界面仍待实机验证。
 Linux/macOS 的 IDE 进程筛选、端口归属、安装打包和 Trusted Types 浏览器 fixture 纳入 CI；登录后的 IDE GUI 仍待实机验收。
 当前仅支持默认用户 profile；私有 Preact/DOM 或 RPC 变化可能需要适配，不能保证未来 IDE 版本无需维护。
