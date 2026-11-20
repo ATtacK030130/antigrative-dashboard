@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.10 — 2026-11-20
+
+- Show conversation compaction counts (`🗜`) in the inline context card, native sidecar panel, and chip/tab tooltips when `transcriptStats.compactionMarkers > 0`, localized across English, Simplified Chinese, and Traditional Chinese (#4, #7).
+- Add `>= 75%` warning and `>= 90%` danger colors for the inline context ring and context progress bar against host-reported `maxContextTokens`, fix `localize()` so it skips dynamic `[data-card]` chip titles during polling, and dispose `speedStyle` on sidecar `pagehide` (#4, #7).
+- Support Windows proxy shortcuts targeting `AntigravityLauncher.exe` (such as `yuaotian/antigravity-proxy`'s `Antigravity (代理).lnk`, `Antigravity (Proxy).lnk`, and `Antigravity (Прокси).lnk`) in both `compat/launch-config.mjs` and `compat/launch_config.py`, while continuing to exclude IDE shortcuts (#3, #6).
+
 ## 0.9.9 — 2026-11-20
 
 - Eliminate redundant idle Windows `powershell.exe` / WMI process rescans across both the Desktop App (`AntigravityClient`) and standalone IDE (`IdeClient`): after the 15s discovery lease expires, verify the cached server's PID liveness (`isProcessAlive`) and loopback port reachability (`probeLoopbackPort`) first and renew the lease directly, only running a full process scan if the backend exited, closed its port, rejected credentials, or a forced refresh was requested.
