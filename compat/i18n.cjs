@@ -37,6 +37,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       panelInlineReconnecting:'Inline widget is reconnecting automatically; statistics remain available in this panel.',
       panelDebugPortReady:'Host started without remote debugging (launch shortcut configured); fully quit and reopen Antigravity for the inline bar. Statistics remain available here.',
       panelDebugPortManual:'Antigravity 2.33+ requires --remote-debugging-port=0 --remote-debugging-address=127.0.0.1 (or python3 manage.py launch) for the inline bar; statistics remain available here.',
+      exportTitle:'Export conversations',exportButton:'Export conversations',exportLoading:'Loading conversations…',exportEmpty:'No local transcripts found.',exportSelectAll:'All',exportSelectNone:'None',exportCurrent:'Current',exportThinking:'Thinking',exportTools:'Tools',exportSystem:'System',exportDirLabel:'Save folder',exportSave:'Export ({n})',exportSaving:'Exporting…',exportDone:'✓ Exported ({n})',exportCopy:'Copy',exportCopiedShort:'✓ Copied',exportCopied:'Copied: {title}',exportCopySingle:'Select 1 conversation to copy.',exportSaved:'Saved {n} file(s) to {dir}',exportSavedOne:'Saved: {file}',exportClose:'Close',exportFailed:'Export failed',
     },
     'zh-CN':{
       collectionBackgroundFailed:'后台暂时无法完成，稍后会自动重试。',collectionProcessing:'正在补全统计',collectionProcessingReason:'后台处理中，可继续使用。',collectionProgress:'查看进度',collectionProgressCounts:'已处理 {steps} 个步骤 · {requests} 条请求记录',collectionQueued:'等待处理',collectionSteps:'读取步骤',collectionGenerators:'读取请求记录',collectionReducing:'计算统计',collectionPublishing:'保存已校验统计',
@@ -71,6 +72,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       panelInlineReconnecting:'内嵌栏正在自动重连；此面板仍可查看统计。',
       panelDebugPortReady:'宿主未开启调试端口（已自动配置启动入口）；请完全退出并从快捷方式重开 Antigravity 以恢复内嵌栏，当前可在此面板查看统计。',
       panelDebugPortManual:'Antigravity 2.33+ 需带 --remote-debugging-port=0 --remote-debugging-address=127.0.0.1（或运行 python3 manage.py launch）启动以显示内嵌栏；此面板仍可查看统计。',
+      exportTitle:'导出对话',exportButton:'导出对话上下文',exportLoading:'正在读取本地对话…',exportEmpty:'未找到可导出的本地对话日志。',exportSelectAll:'全选',exportSelectNone:'清空',exportCurrent:'当前',exportThinking:'思考',exportTools:'工具',exportSystem:'系统',exportDirLabel:'保存目录',exportSave:'导出 ({n})',exportSaving:'导出中…',exportDone:'✓ 已导出 ({n})',exportCopy:'复制',exportCopiedShort:'✓ 已复制',exportCopied:'已复制：{title}',exportCopySingle:'复制仅支持勾选 1 个会话。',exportSaved:'已导出 {n} 个文件到 {dir}',exportSavedOne:'已保存：{file}',exportClose:'关闭',exportFailed:'导出失败',
     },
     'zh-TW':{
       collectionBackgroundFailed:'背景暫時無法完成，稍後會自動重試。',collectionProcessing:'正在補全統計',collectionProcessingReason:'背景處理中，可繼續使用。',collectionProgress:'查看進度',collectionProgressCounts:'已處理 {steps} 個步驟 · {requests} 筆請求記錄',collectionQueued:'等待處理',collectionSteps:'讀取步驟',collectionGenerators:'讀取請求記錄',collectionReducing:'計算統計',collectionPublishing:'儲存已驗證統計',
@@ -105,6 +107,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       panelInlineReconnecting:'內嵌狀態列正在自動重新連線；此面板仍可檢視統計資料。',
       panelDebugPortReady:'宿主未開啟偵錯連接埠（已自動設定啟動捷徑）；請完全退出並由捷徑重開 Antigravity 以恢復內嵌狀態列，目前可在此面板檢視統計資料。',
       panelDebugPortManual:'Antigravity 2.33+ 需帶 --remote-debugging-port=0 --remote-debugging-address=127.0.0.1（或執行 python3 manage.py launch）啟動以顯示內嵌狀態列；此面板仍可檢視統計資料。',
+      exportTitle:'匯出對話',exportButton:'匯出對話內容',exportLoading:'正在讀取本機對話…',exportEmpty:'找不到可匯出的本機對話記錄。',exportSelectAll:'全選',exportSelectNone:'清空',exportCurrent:'目前',exportThinking:'思考',exportTools:'工具',exportSystem:'系統',exportDirLabel:'儲存資料夾',exportSave:'匯出 ({n})',exportSaving:'匯出中…',exportDone:'✓ 已匯出 ({n})',exportCopy:'複製',exportCopiedShort:'✓ 已複製',exportCopied:'已複製：{title}',exportCopySingle:'複製僅支援勾選 1 個對話。',exportSaved:'已匯出 {n} 個檔案到 {dir}',exportSavedOne:'已儲存：{file}',exportClose:'關閉',exportFailed:'匯出失敗',
     },
   };
   let language=initialLanguage==='zh-CN'||initialLanguage==='zh-TW'?initialLanguage:'en';

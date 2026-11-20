@@ -21,6 +21,19 @@ module.exports = function installAgPulseInlineWidget() {
   const setMarkup=(element,markup)=>{if(surface?.setMarkup)surface.setMarkup(element,markup);else element.innerHTML=markup;};
   const instances=[];
   let layoutFrame=null,disposed=false;
+  let topExporter=null;
+  const activeStrip=()=>instances.find(inst=>!inst.parked&&['main','ide'].includes(inst.composer?.kind))||instances.find(inst=>!inst.parked)||instances[0]||null;
+  const ensureTopExporter=()=>{
+    if(disposed||surface||topExporter||typeof window.__agPulseExportFactory!=='function')return;
+    topExporter=window.__agPulseExportFactory({
+      language,
+      theme,
+      getConversationId:()=>activeStrip()?.conversationId?.()||location.pathname.match(/\/c\/([0-9a-f-]{36})/i)?.[1]||null,
+      getComposerBox:()=>activeStrip()?.composer?.box||null,
+      localGet,
+      localSet,
+    });
+  };
   const HOVER_DELAY=250,WARM_WINDOW=350,LEAVE_DELAY=120,QUOTA_HOVER_COOLDOWN=4000;
   const densityMedia=matchMedia('(prefers-reduced-motion: reduce)');
   const densityEase='cubic-bezier(0.32,0.72,0,1)';
@@ -40,7 +53,7 @@ module.exports = function installAgPulseInlineWidget() {
   const preferences=language.connectPreferences({
     read:async()=>{const value=await window.agPulseHost.getPreferences();syncGuide(value);return value;},
     write:async input=>{const value=await window.agPulseHost.setPreferences(input);syncGuide(value);return value;},
-    cache:value=>localSet('ag-pulse-language',value),changed:()=>{for(const inst of instances)inst.onLocaleChanged();},
+    cache:value=>localSet('ag-pulse-language',value),changed:()=>{topExporter?.localize();for(const inst of instances)inst.onLocaleChanged();},
   });
   void preferences.ready.then(()=>{if(disposed)return;guideReady=!preferences.error;scheduleLayout();});
   const icon=(name)=>({cache:'<ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 2 10 2 10 0V4M3 8c0 2 10 2 10 0"/>',five:'<circle cx="8" cy="8" r="5.6"/><path d="M8 4.7v3.6l2.3 1.4"/>',week:'<rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M5 2v3m6-3v3M3 7h10"/>'}[name]);
@@ -1437,7 +1450,7 @@ module.exports = function installAgPulseInlineWidget() {
     pending=true;lastFetch=Date.now();
     refreshRequest=(async()=>{
       const composerModel=currentComposerModel();
-      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force,...(quotaRefresh?{quotaRefresh:true}:{}),...(composerModel?{composerModel}:{}),...(syncUsage?{usageSync:true}:{})});if(!current())return;if(force||quotaRefresh)lastQuotaHoverAt=Date.now();node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;if(result.usage?.scope&&data?.usage?.scope===usageScope.scope&&result.usage.scope!==usageScope.scope)result.usage=data.usage;data=result;hydrated=true;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
+      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force,...(quotaRefresh?{quotaRefresh:true}:{}),...(composerModel?{composerModel}:{}),...(syncUsage?{usageSync:true}:{})});if(!current())return;if(force||quotaRefresh)lastQuotaHoverAt=Date.now();node.style.visibility=result.enabled===false?'hidden':'';topExporter?.setVisible(result.enabled!==false);if(result.enabled===false){hide();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;if(result.usage?.scope&&data?.usage?.scope===usageScope.scope&&result.usage.scope!==usageScope.scope)result.usage=data.usage;data=result;hydrated=true;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme')){themeController?.setHostTheme(result.theme);topExporter?.syncTheme(result.theme);}render();}
       catch{if(current()&&data){data.connection='stale';data.error=t('reconnecting');render();}}
       finally{if(epoch===requestEpoch){pending=false;refreshRequest=null;}}
     })();
@@ -1460,6 +1473,7 @@ module.exports = function installAgPulseInlineWidget() {
     onSpeedStyleChanged(){if(root){attribute(node,'data-speed-style',speedStyle.style);localize();paintSpeed([],'idle',0.36,false);render();tick();position();}},
     onUsageScopeChanged(){if(root){render();}},
     syncUsageGuide(){usageDashboard?.syncGuideDismissed();},
+    conversationId,
     poll(){
       if(instDisposed||!node)return;
       if(!parked){fit();tick();position();}
@@ -1469,7 +1483,7 @@ module.exports = function installAgPulseInlineWidget() {
   }
   function scheduleLayout(){
     if(disposed||layoutFrame!==null)return;
-    layoutFrame=requestAnimationFrame(()=>{layoutFrame=null;if(disposed)return;mount();for(const inst of instances)if(!inst.parked){inst.fit();inst.position();}});
+    layoutFrame=requestAnimationFrame(()=>{layoutFrame=null;if(disposed)return;mount();topExporter?.reposition();for(const inst of instances)if(!inst.parked){inst.fit();inst.position();}});
   }
   function mount(){
     if(disposed)return;
@@ -1519,17 +1533,19 @@ module.exports = function installAgPulseInlineWidget() {
     for(const inst of instances)if(inst!==primary)inst.setPrimary(false,`${ID}-${secondaryIndex++}`);
     if(primary)primary.setPrimary(true,ID);
   }
-  const observer=new MutationObserver(records=>{if(records.some(record=>!isOwnNode(record.target)))scheduleLayout();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden','inert','data-cascade-id','data-testid','data-tooltip-id','aria-label','role','contenteditable']});
+  const observer=new MutationObserver(records=>{if(records.some(record=>!isOwnNode(record.target)&&record.target?.id!=='ag-pulse-top-export'&&!record.target?.closest?.('#ag-pulse-top-export')))scheduleLayout();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden','inert','data-cascade-id','data-testid','data-tooltip-id','aria-label','role','contenteditable']});
   const onKey=e=>{if(e.key==='Escape')for(const inst of instances)inst.hide();}, onPointer=e=>{for(const inst of instances)if(inst.node&&!e.composedPath().includes(inst.node))inst.hide();};
   const onFocus=e=>{if(!instances.length||!e.composedPath().some(isOwnNode))scheduleLayout();};
   const onMotionChange=()=>{for(const inst of instances)inst.stopDensityMotion();};
   document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);document.addEventListener('focusin',onFocus);
   window.addEventListener('resize',scheduleLayout);document.addEventListener('scroll',scheduleLayout,true);
   densityMedia.addEventListener('change',onMotionChange);
-  const timerId=setInterval(()=>{mount();for(const inst of instances)inst.poll();},1000);
+  ensureTopExporter();
+  const timerId=setInterval(()=>{ensureTopExporter();topExporter?.reposition();mount();for(const inst of instances)inst.poll();},1000);
   window.__agPulseDispose=()=>{
     disposed=true;
     clearInterval(timerId);if(layoutFrame!==null)cancelAnimationFrame(layoutFrame);observer.disconnect();preferences.dispose();
+    topExporter?.dispose();topExporter=null;
     for(const inst of instances.splice(0))inst.dispose();
     document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer);document.removeEventListener('focusin',onFocus);
     document.removeEventListener('scroll',scheduleLayout,true);window.removeEventListener('resize',scheduleLayout);
