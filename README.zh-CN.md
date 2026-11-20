@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.9](https://img.shields.io/badge/version-0.9.9-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.10](https://img.shields.io/badge/version-0.9.10-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.33.0](https://img.shields.io/badge/Antigravity-2.33.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.9：** 修复 Windows 空闲期每 15 秒重复触发 `powershell.exe` / WMI 扫描导致的超时报错，改为基于 PID 存活与本地端口探活的零开销续租；进程发现超时与命令错误全面脱敏（简中同步启用白名单兜底），并将额度卡全局错误收敛为单条 `#quota-error` 提示避免重复铺屏。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.9) · [兼容性](COMPATIBILITY.md)。
+**v0.9.10：** 在内嵌上下文卡和原生侧边面板新增对话压缩次数（`🗜`）与 `>= 75%` / `>= 90%` 上下文占用阈值预警色（#4、#7），并为 Windows 快捷方式自动注入补齐 `yuaotian/antigravity-proxy` 的 `AntigravityLauncher.exe` 兼容支持（#3、#6）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.10) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.9.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.10.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
