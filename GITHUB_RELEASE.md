@@ -7,6 +7,7 @@ Improves quota-window full-capacity estimation accuracy and eliminates first-lau
   - **Smooth warm start & sudden-reset isolation:** Persists lightweight cross-cycle calibration (`quota-calibration-v1.json`) to smooth `1%` post-reset estimates via Empirical Bayes shrinkage, detects mid-cycle quota bounces and resets all post-anchor deltas (tokens, used fraction, and request count), and uses Theil-Sen median slopes to resist single-turn spikes and initial unrecorded offsets.
   - **Official quota hike/cut resilience:** Immediately follows large quota increases or cuts on display, while requiring a second non-overlapping increment in the same direction before fast-updating historical priors.
 - **Non-blocking cold-start SQLite indexing:** Bounds foreground `/api/metrics` waits on ordinary polls to `350ms` (`maxWaitMs`) across both Desktop App and IDE, so live context window, five-hour/weekly quotas, TPS, and cache hit rate render immediately even during an initial multi-hundred-file `.usage-index-v1.sqlite` build.
+- **Windows non-ASCII shortcut path fix (#14):** Escapes non-ASCII characters as pure ASCII `\uXXXX` JSON and enforces UTF-8 PowerShell stdin/stdout encoding in `compat/launch-config.mjs` and `compat/launch_config.py`, fixing shortcut flag injection for Chinese usernames, redirected `桌面` folders, and `Antigravity (代理).lnk` on CP936/GBK Windows systems.
 
 ## Install or update
 

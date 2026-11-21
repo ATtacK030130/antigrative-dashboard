@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.9.13:** Introduces a hybrid quota full-capacity estimator (earlier `2%` weekly cold start, cross-cycle Empirical Bayes warm start, anchor-relative mid-cycle reset isolation, Theil-Sen slope robustness, and two-stage official quota shift adaptation) and bounds first-launch SQLite indexing waits so live context and quota windows render immediately. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.13) · [Compatibility](COMPATIBILITY.md).
+**v0.9.13:** Introduces a hybrid quota full-capacity estimator (earlier `2%` weekly cold start, cross-cycle Empirical Bayes warm start, anchor-relative mid-cycle reset isolation, Theil-Sen slope robustness, and two-stage official quota shift adaptation), bounds first-launch SQLite indexing waits so live context and quota windows render immediately, and fixes Windows PowerShell shortcut encoding for Chinese/non-ASCII paths (#14). [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.13) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 

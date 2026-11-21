@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.13：** 新增三层混合额度满额估算器（周额度冷启动门槛降至 `2%`，支持跨周期经验贝叶斯温启动、突然重置后全量按新锚点隔离、Theil-Sen 鲁棒斜率及双段确认的官方调额自适应），并将首次冷建 SQLite 历史索引改为后台非阻塞推进（前台等待上限 `350ms`），确保上下文窗口与 5h/周额度首包秒出。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.13) · [兼容性](COMPATIBILITY.md)。
+**v0.9.13：** 新增三层混合额度满额估算器（周额度冷启动门槛降至 `2%`，支持跨周期经验贝叶斯温启动、突然重置后全量按新锚点隔离、Theil-Sen 鲁棒斜率及双段确认的官方调额自适应），将首次冷建 SQLite 历史索引改为后台非阻塞推进（前台等待上限 `350ms`），并修复 Windows 快捷方式路径含中文/非 ASCII 字符时 PowerShell 编码不一致导致写入失败的问题（#14）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.13) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
