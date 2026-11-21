@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.13 — 2026-11-21
+
+- Add a hybrid quota full-capacity estimator (`sidecars/panel/quota-estimator.mjs`, wired into `sidecars/panel/usage.mjs`) for five-hour and weekly quota-window references: lowers weekly cold-start threshold from `5%` to `2%` (with `>= 5` requests), tracks monotonic post-anchor samples and Theil-Sen median slopes to isolate sudden mid-cycle quota resets (including request-count anchors) and initial unrecorded offsets, applies cross-cycle Empirical Bayes shrinkage (`1%` weekly / `1.5%` 5h warm start after resets) stored in `quota-calibration-v1.json`, and immediately follows official quota increases/cuts on display while requiring non-overlapping confirmation before fast-updating historical priors.
+- Prevent first-time SQLite usage index builds (`.usage-index-v1.sqlite`) from blocking initial `/api/metrics` responses in both Desktop App (`sidecars/panel/main.mjs`) and standalone IDE (`ide/main.mjs`): bound foreground polling waits to `350ms` (`maxWaitMs`) so live context window, five-hour/weekly quotas, TPS, and cache hit rate appear immediately while historical indexing completes in the background and warms the summary cache.
+
 ## 0.9.12 — 2026-11-21
 
 - Eliminate out-of-memory crashes on large conversation histories with a permanent O(1)-heap usage index (`sidecars/panel/usage-index.mjs`, `sidecars/panel/usage.mjs`, `sidecars/panel/usage-disk-worker.mjs`): replace full-history in-memory deduplication (`seen = new Map()`) and per-update temporary DB rebuilds with a persistent incremental SQLite index (`.usage-index-v1.sqlite`, bounded 8 MiB page cache, self-healing on corruption, atomic streaming for >1 MiB legacy JSON), add LRU caps to `MetricsStore.sessions` (`maxCachedSessions = 32`) and `TrajectoryReader` inactive caches (`4 MiB` / 4 entries), add 128 MiB heap soft-watermark backfill backpressure, and remove the brittle `--max-old-space-size=192` crash cap from `sidecars/panel/sidecar.json` and `ide/extension.cjs`.
