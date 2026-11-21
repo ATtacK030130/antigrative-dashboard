@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { spawn, spawnSync } from 'node:child_process';
 import { accessSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -548,6 +548,69 @@ test('font sync, scope switching and quota window reference render end-to-end in
   assert.equal(tierMergeCheck.sonnetTip.tiers.length, 2, 'Claude Sonnet 4.6 should show Default + Thinking tiers');
   assert.equal(tierMergeCheck.hiddenAfterLeave, true, 'Leaving multi-tier row should hide tooltip');
   assert.equal(tierMergeCheck.singleTierTipHidden, true, 'Single-tier row hover should keep tooltip hidden');
+
+  const paletteState = mode => evalJs(`() => {
+    const dialog = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard');
+    const view = dialog.firstElementChild.shadowRoot;
+    const control = view.getElementById('chart-palette');
+    if (${JSON.stringify(mode)} !== null) {
+      control.value = ${JSON.stringify(mode)};
+      control.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    const neon = '[data-model="gemini 4 neon"]';
+    const read = node => node?.style.getPropertyValue('--model-color');
+    const {x,y,width,height}=dialog.getBoundingClientRect();
+    return {mode:control.value, stored:localStorage.getItem('ag-pulse-usage-palette'),
+      legend:read(view.querySelector('#legend button'+neon+' .dot')),
+      hydrogen:read(view.querySelector('#legend button[data-model="gemini 4 hydrogen"] .dot')),
+      orchestrator:read(view.querySelector('#legend button[data-model="gemini 4 hydrogen orchestrator"] .dot')),
+      table:read(view.querySelector('#table-body tr'+neon+' .dot')),
+      bar:read(view.querySelector('.bar-segment'+neon)),
+      total:view.querySelector('#table-body tr'+neon).children[1].textContent,
+      clip:{x,y,width,height,scale:1}};
+  }`);
+  const capturePalette=async (name,state)=>{
+    if(!process.env.AG_PALETTE_PREVIEW)return;
+    const shot=await cdp.command('Page.captureScreenshot',{format:'png',clip:state.clip});
+    await writeFile(join(process.env.AG_PALETTE_PREVIEW,name+'.png'),Buffer.from(shot.data,'base64'));
+  };
+  if(process.env.AG_PALETTE_PREVIEW){
+    await evalJs(`() => document.documentElement.style.setProperty('--ui-font-family','"Segoe UI"')`);
+    await waitUntil(`() => getComputedStyle(document.getElementById('ag-pulse-status-bar')).getPropertyValue('--pulse-font').includes('Segoe UI')`, 'preview font');
+  }
+  const defaultPalette=await paletteState(null);
+  assert.equal(defaultPalette.mode,'theme');
+  await capturePalette('dark-theme',defaultPalette);
+  const modelPalette=await paletteState('model');
+  assert.equal(modelPalette.stored,'model');
+  assert.equal(modelPalette.legend,'rgb(255 133 86)');
+  assert.equal(modelPalette.table,modelPalette.legend);
+  assert.equal(modelPalette.bar,modelPalette.legend);
+  assert.notEqual(modelPalette.legend,defaultPalette.legend);
+  assert.notEqual(modelPalette.orchestrator,modelPalette.hydrogen);
+  assert.equal(modelPalette.total,defaultPalette.total);
+  await capturePalette('dark-model',modelPalette);
+  await evalJs(`() => {
+    document.documentElement.setAttribute('data-theme','light');
+    document.documentElement.style.setProperty('--background','#f7f8fa');
+  }`);
+  await waitUntil(`() => document.getElementById('ag-pulse-status-bar').dataset.pulseTheme==='light'`, 'light palette host theme');
+  const lightTheme=await paletteState('theme');
+  await capturePalette('light-theme',lightTheme);
+  const lightModel=await paletteState('model');
+  assert.equal(lightModel.legend,'rgb(184 64 24)');
+  assert.equal(lightModel.table,lightModel.legend);
+  assert.equal(lightModel.bar,lightModel.legend);
+  assert.equal(lightModel.total,defaultPalette.total);
+  await capturePalette('light-model',lightModel);
+  await evalJs(`() => {
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.style.removeProperty('--background');
+  }`);
+  if(process.env.AG_PALETTE_PREVIEW){
+    await evalJs(`() => document.documentElement.style.setProperty('--ui-font-family','"Georgia"')`);
+  }
+  assert.equal((await paletteState('theme')).stored,'theme');
 
   const detailsMetrics = await evalJs(`() => {
     const ud = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard');

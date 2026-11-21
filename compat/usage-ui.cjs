@@ -22,6 +22,8 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     .scope-seg{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;padding:3px;border:1px solid var(--pulse-border);background:var(--pulse-hover);border-radius:9px;gap:0;margin-bottom:6px;flex:none;isolation:isolate}#scope-controls[hidden]{display:none}.scope-thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:6px;background:var(--pulse-card);border:1px solid color-mix(in srgb,var(--pulse-accent) 35%,var(--pulse-border));box-shadow:0 1px 3px var(--pulse-shadow);transition:transform 190ms cubic-bezier(.23,1,.32,1);pointer-events:none;z-index:0}.scope-seg[data-active-scope=account] .scope-thumb{transform:translateX(100%)}.scope-seg button{position:relative;z-index:1;background:transparent!important;box-shadow:none!important;padding:4px 12px;font-weight:500;transition:color 150ms ease}.scope-seg button[aria-pressed=true]{color:var(--pulse-foreground);font-weight:600}.page[data-scope-loading=true] .totals,.page[data-scope-loading=true] #overview,.page[data-scope-loading=true] #details{opacity:.62;transition:opacity 120ms ease}
     .heat-wrap{overflow-x:auto;padding:3px 3px 7px}.calendar{min-width:680px}.months{display:grid;margin-left:35px;font-size:11px;color:var(--pulse-muted);margin-bottom:7px}.months span{white-space:nowrap}.heat-row{display:flex;gap:9px}.weekdays{display:grid;grid-template-rows:repeat(7,1fr);width:26px;flex:none;font-size:11px;color:var(--pulse-muted)}.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);gap:3px;width:100%}.heat button{border:0;border-radius:3px;padding:0;min-width:0;aspect-ratio:1;background:var(--pulse-hover);outline-offset:1px}.heat button[data-level="1"],.swatch[data-level="1"]{background:color-mix(in srgb,var(--pulse-accent) 22%,var(--pulse-hover))}.heat button[data-level="2"],.swatch[data-level="2"]{background:color-mix(in srgb,var(--pulse-accent) 45%,var(--pulse-hover))}.heat button[data-level="3"],.swatch[data-level="3"]{background:color-mix(in srgb,var(--pulse-accent) 68%,var(--pulse-hover))}.heat button[data-level="4"],.swatch[data-level="4"]{background:var(--pulse-accent)}.heat button.future{opacity:.25;cursor:default}.heat.week{grid-template-columns:repeat(26,minmax(0,1fr))!important;grid-template-rows:repeat(2,1fr);grid-auto-flow:row}.week button{max-height:28px;aspect-ratio:1}.heat-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:8px 0 16px;font-size:11px;color:var(--pulse-muted)}.scale{display:flex;align-items:center;gap:4px}.swatch{width:11px;height:11px;border-radius:3px;background:var(--pulse-hover)}.selected{padding:12px 0 0;border-top:1px solid var(--pulse-separator);display:flex;justify-content:space-between;gap:16px;align-items:center}.selected button{border:0;color:var(--pulse-accent);font-size:12px;font-weight:550;padding:5px 8px}.selected button:hover{background:var(--pulse-hover)}.selected .title{font-weight:550;margin-bottom:2px}.selected strong{font-weight:550}
     .dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none;background:var(--model-color)}
+    #details .chart-controls{flex-wrap:wrap}
+    .palette-select{padding:3px 6px;background:var(--pulse-background);color-scheme:var(--pulse-scheme)}
     .chart-controls{display:flex;gap:10px;align-items:center}.range{display:flex;align-items:center;gap:10px}.range button{height:26px;width:26px;border:0}.range strong{font-size:12px;font-weight:500;min-width:106px;text-align:center}.legend{display:flex;flex-wrap:wrap;gap:3px 12px;margin:0 0 10px;max-height:46px;overflow-y:auto;padding-right:4px}.legend button{display:flex;align-items:center;gap:5px;padding:2px 0;border:0;border-radius:3px;background:transparent;font-size:11px;line-height:1.35;color:var(--pulse-muted)}.legend button:hover,.legend button[aria-pressed=true]{color:var(--pulse-foreground)}.legend button[aria-pressed=false]{opacity:.35;text-decoration:line-through}
     .chart-wrap{overflow-x:auto;border-bottom:1px solid var(--pulse-separator);padding:9px 0 8px;margin-bottom:10px}.chart{height:168px;display:flex;gap:16px;min-width:650px}.axis{width:42px;flex:none;position:relative;font-size:11px;color:var(--pulse-muted)}.axis span{position:absolute;right:0;transform:translateY(50%)}.plot{position:relative;flex:1;display:flex;align-items:stretch;gap:5px;padding:0 1px}.grid-line{position:absolute;left:0;right:0;border-top:1px solid var(--pulse-separator);opacity:.45;pointer-events:none}.grid-line:first-child{opacity:.85}.bar-column{position:relative;flex:1;min-width:0;display:flex;align-items:flex-end;border:0;border-radius:4px;background:transparent;padding:0;margin-bottom:18px}.bar-column:hover{background:transparent}.bar-column:active{transform:none}.stack{display:flex;flex-direction:column-reverse;width:62%;max-width:30px;margin-inline:auto;gap:0;pointer-events:none;border-radius:4px 4px 0 0;overflow:hidden}.bar-segment{display:block;flex:none;width:100%;min-height:0;border-radius:0;pointer-events:auto;background:var(--model-color);transition:opacity 140ms ease}.plot[data-highlight] .bar-segment:not([data-highlight=true]){opacity:.24}.x-label{position:absolute;top:calc(100% + 5px);left:50%;transform:translateX(-50%);font-size:11px;color:var(--pulse-muted);white-space:nowrap}.empty-bar{height:1px;width:100%;background:var(--pulse-track);border-radius:2px;opacity:.35}.chart-empty{position:absolute;left:0;right:0;top:40%;text-align:center;color:var(--pulse-muted);font-size:12px;pointer-events:none}.chart-summary{font-size:11px;color:var(--pulse-muted);margin:0}.chart-summary strong{color:var(--pulse-foreground);font-weight:500}
     .table-wrap{overflow:visible}.table{width:100%;border-collapse:collapse;text-align:right;font-size:11px;white-space:nowrap}.table th{font-weight:500;color:var(--pulse-muted);padding:6px 10px;border-bottom:0;position:sticky;top:0;z-index:2;background:var(--pulse-background);box-shadow:inset 0 -1px 0 var(--pulse-separator)}.table td{padding:7px 10px;border-bottom:1px solid var(--pulse-separator)}.table td:nth-child(2){font-weight:550}.table tbody tr:hover td{background:color-mix(in srgb,var(--pulse-hover) 55%,transparent)}.table th:first-child,.table td:first-child{text-align:left;padding-left:0}.table td:first-child span{margin-right:7px}.table tr:last-child td{border-bottom:0}
@@ -139,15 +141,50 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   const contrast=(a,b)=>(Math.max(luminance(a),luminance(b))+.05)/(Math.min(luminance(a),luminance(b))+.05);
   const hsl=a=>{const [r,g,b]=a.map(v=>v/255),hi=Math.max(r,g,b),lo=Math.min(r,g,b),d=hi-lo,l=(hi+lo)/2;return [d?((hi===r?(g-b)/d+(g<b?6:0):hi===g?(b-r)/d+2:(r-g)/d+4)*60):0,d?d/(1-Math.abs(2*l-1)):0,l];};
   const fromHsl=(h,s,l)=>{const a=s*Math.min(l,1-l),f=n=>{const k=(n+h/30)%12;return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1))));};return [f(0),f(8),f(4)];};
+  const palettePreferenceKey='ag-pulse-usage-palette';
+  let paletteMode='theme';
+  try { if(localStorage.getItem(palettePreferenceKey)==='model')paletteMode='model'; } catch {}
+  // Indexed by the parsed base model. Variants such as Flash Lite and Argon
+  // Trial have their own colors, while reasoning tiers share the same color.
+  const familyColors=[
+    [/^claude opus\b/,'#d97757','#9b452e'],
+    [/^claude sonnet\b/,'#ffca98','#8d602f'],
+    [/^claude\b/,'#f1ad80','#a8592d'],
+    [/^gemini \S+ carbon\b/,'#8999a8','#495661'],
+    [/^gemini \S+ helix\b/,'#f2d568','#836500'],
+    [/^gemini \S+ krypton\b/,'#d0e8ed','#3c747c'],
+    [/^gemini \S+ neon\b/,'#ff8556','#b84018'],
+    [/^gemini \S+ hydrogen\b/,'#fa78af','#ae2b62'],
+    [/^gemini \S+ argon trial\b/,'#dfccff','#8057ae'],
+    [/^gemini \S+ argon\b/,'#ab8af3','#6438a4'],
+    [/^gemini \S+ flash lite\b/,'#74ddcf','#007b6d'],
+    [/^gemini \S+ flash\b/,'#6bd6f4','#007789'],
+    [/^gemini\b/,'#68d3a2','#137450'],
+  ];
+  function familyColor(model,background,target){
+    if(/\borchestrator\b/.test(model))return null;
+    const swatch=familyColors.find(([pattern])=>pattern.test(model));
+    if(!swatch)return null;
+    const base=rgb(swatch[target===1?1:2]);
+    let fill=base;
+    for(let step=1;contrast(fill,background)<3&&step<=100;step++){
+      fill=base.map(channel=>Math.round(channel+(255*target-channel)*step/100));
+    }
+    return fill;
+  }
   function syncPalette(){
     syncModels();
-    const models=[...mergedModelList].sort(),key=themeSignature()+'|'+models.join('|');if(key===paletteKey)return;paletteKey=key;modelColors.clear();
+    const models=[...mergedModelList].sort(),key=paletteMode+'|'+themeSignature()+'|'+models.join('|');if(key===paletteKey)return;paletteKey=key;modelColors.clear();
     const style=getComputedStyle(root.host||dialog),base=rgb(style.getPropertyValue('--pulse-accent').trim()||'#85a8ff'),background=rgb(style.getPropertyValue('--pulse-background').trim()||'#1c1d1f'),[h,s]=hsl(base);
     // An analogous scale stays harmonious as the host accent changes. Tonal
     // variation distinguishes adjacent series without provider brand colors.
     const dark=luminance(background)<.35,offsets=[0,-18,18,-36,36,-9,9,-27,27],tones=dark?[.64,.52,.73,.59,.68]:[.43,.33,.51,.38,.47];
     const end=contrast([255,255,255],background)>contrast([0,0,0],background)?1:0;
     models.forEach((model,i)=>{const hue=(h+offsets[i%offsets.length]+360)%360,saturation=s<.08?.07:Math.max(.28,Math.min(.55,s*.72));let lightness=tones[i%tones.length],c=fromHsl(hue,saturation,lightness);
+      if(paletteMode==='model'){
+        const fill=familyColor(model,background,end);
+        if(fill){modelColors.set(model,'rgb('+fill.join(' ')+')');return;}
+      }
       // Chart marks (including small legend dots) need contrast on the actual
       // custom background, rather than relying solely on dark/light labels.
       for(let step=0;contrast(c,background)<3&&step<100;step++){lightness+=end? .005:-.005;lightness=Math.max(0,Math.min(1,lightness));c=fromHsl(hue,saturation,lightness);}
@@ -242,7 +279,25 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   }
   const chartSummary=node('div','chart-summary');$('detail-title').after(chartSummary);
   const chartHeading=node('div','detail-heading');$('detail-title').before(chartHeading);chartHeading.append($('detail-title'),chartSummary);
+  const paletteSelect=node('select','palette-select');
+  paletteSelect.id='chart-palette';
+  for(const mode of ['theme','model']){
+    const choice=node('option','');choice.value=mode;paletteSelect.append(choice);
+  }
+  paletteSelect.value=paletteMode;
+  $('period-controls').before(paletteSelect);
+  paletteSelect.addEventListener('change',()=>{
+    paletteMode=paletteSelect.value==='model'?'model':'theme';
+    try { localStorage.setItem(palettePreferenceKey,paletteMode); } catch {}
+    if(value)renderChart();
+  });
+  function localizePalette(){
+    paletteSelect.setAttribute('aria-label',w('图表配色','Chart palette','圖表配色'));
+    paletteSelect.options[0].textContent=w('主题配色','Theme colors','主題配色');
+    paletteSelect.options[1].textContent=w('模型配色','Model colors','模型配色');
+  }
   function renderChart(){
+    localizePalette();
     if(!value)return;syncPalette();hideTip();highlightModel(null);
     const buckets=[];
     if(period==='day'){const start=month(anchor,0),end=add(month(anchor,1),-1);for(let date=start;date<=end;date=add(date,1))buckets.push(totals(date,date,true));text('range-label',start.slice(0,7));}
