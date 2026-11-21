@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.11 — 2026-11-21
+
+- Adapt **Antigravity Desktop 2.34.0+**, where `language_server` no longer exposes `--csrf_token` on the process command line and enforces scoped sidecar tokens: fall back to the host-injected `ANTIGRAVITY_CSRF_TOKEN` (and PID-verified loopback HTTP `ANTIGRAVITY_LS_ADDRESS` when logs are unavailable) in `AntigravityClient` and `IdeClient`, restoring live context window, five-hour/weekly quotas, TPS, and cache hit collection.
+- Distinguish verified sidecar endpoints with single-RPC HTTP `403` restrictions (`RPC_RESTRICTED`) from genuine credential/socket loss so restricted procedures neither invalidate healthy endpoints nor loop process scans, and localize HTTP `403` restriction messages across English, Simplified Chinese, and Traditional Chinese.
+- Add exact 2.34.0 `transcript.jsonl` token-count extraction (`TranscriptReader.readMetrics`) as a read-only fallback when trajectory RPCs are restricted (`403`) without retained prompt/reply text, and classify `Neon` model labels into the `gemini` quota family in `usage.mjs` and `compat/i18n.cjs`.
+
 ## 0.9.10 — 2026-11-20
 
 - Show conversation compaction counts (`🗜`) in the inline context card, native sidecar panel, and chip/tab tooltips when `transcriptStats.compactionMarkers > 0`, localized across English, Simplified Chinese, and Traditional Chinese (#4, #7).

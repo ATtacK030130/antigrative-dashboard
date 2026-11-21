@@ -7,16 +7,16 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for pace forecasts, window usage and five-hour / weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.9.10](https://img.shields.io/badge/version-0.9.10-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.11](https://img.shields.io/badge/version-0.9.11-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.33.0](https://img.shields.io/badge/Antigravity-2.33.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.34.0](https://img.shields.io/badge/Antigravity-2.34.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [Preview](#preview) · [IDE](#antigravity-ide) · [CLI](#antigravity-cli-status-line) · [Install](#install) · [Enable or remove](#plug-and-unplug) · [Compatibility](#compatibility) · [FAQ](#faq) · [中文](README.zh-CN.md)
 
 </div>
 
-**v0.9.10:** Shows host-derived conversation compaction counts (`🗜`) and `>= 75%` / `>= 90%` context occupancy warning colors in the inline card and sidecar panel (#4, #7), and adds Windows shortcut auto-injection support for `yuaotian/antigravity-proxy`'s `AntigravityLauncher.exe` (#3, #6). [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.10) · [Compatibility](COMPATIBILITY.md).
+**v0.9.11:** Restores live context window, five-hour/weekly quotas, TPS, and cache-hit collection on **Antigravity Desktop 2.34.0+** by falling back to host-injected sidecar credentials when `--csrf_token` is omitted from `language_server` arguments, adds scoped-token `403` resilience with read-only `transcript.jsonl` token fallback, and maps `Neon` models to the Gemini quota group. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.11) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.9.10.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.9.11.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with
