@@ -401,6 +401,7 @@ module.exports = function installAgPulseInlineWidget() {
   let node=null,root=null,data=null,pending=false,cardName=null,hoverTimer=null,openTimer=null,warmUntil=0,lastConversation=undefined,lastFetch=0,lastExpiredRefresh=0,resizeObserver=null,modelObserver=null,themeController=null,changingCards=false;
   const isWarm=()=>Boolean(cardName||Date.now()<warmUntil);
   let chosen=null,group=null,autoGroupId=null,lastModelSig=null,quotaSigCache=null,quotaObservedAt=0;
+  let lastQuotaUsageAccount=null;const lastQuotaWindowUsage=new Map();
   let refreshRequest=null,manualRequest=null,hoverQuotaRequest=null,lastQuotaHoverAt=0,requestEpoch=0,scopeRequestEpoch=0;
   let composer=null,usageDashboard=null,updateMenu=null;
   let densityFrame=null,densityMotion=null,densityProbe=null;
@@ -1346,7 +1347,25 @@ module.exports = function installAgPulseInlineWidget() {
       text(`${name}-note`,note);hidden($(`${name}-note`),!note);
       const usageRow=$(`${name}-usage`);
       if(usageRow){
-        const winUsage=group?.id&&!b?.disabled&&b?.available?data.usage?.quotaWindows?.[`${group.id}:${window}`]:null;
+        const usageAccount=data.usage?.activeAccountKey??null;
+        if(data.usage&&usageAccount!==lastQuotaUsageAccount){lastQuotaUsageAccount=usageAccount;lastQuotaWindowUsage.clear();}
+        const winKey=group?.id?`${group.id}:${window}`:null;
+        const resetMs=typeof b?.resetAt==='string'?Date.parse(b.resetAt):NaN;
+        const resetMinute=Number.isFinite(resetMs)?Math.round(resetMs/60000):null;
+        const rawWinUsage=winKey&&!b?.disabled&&b?.available?data.usage?.quotaWindows?.[winKey]:null;
+        let winUsage=rawWinUsage&&typeof rawWinUsage.observedTokens==='number'&&rawWinUsage.observedTokens>0?rawWinUsage:null;
+        if(winKey&&winUsage){
+          lastQuotaWindowUsage.set(winKey,{resetMinute,usage:winUsage});
+        }else if(winKey&&!b?.disabled&&b?.available&&(data.usage?.summaryStale===true||!data.usage)&&resetMinute!==null){
+          const prev=lastQuotaWindowUsage.get(winKey);
+          if(prev&&prev.resetMinute!==null&&Math.abs(prev.resetMinute-resetMinute)<=2){
+            const usedFrac=typeof remaining==='number'?Math.max(0,Math.min(1,1-remaining)):null;
+            const estFull=prev.usage.observedTokens>0&&usedFrac!==null&&usedFrac>=0.05?Math.round(prev.usage.observedTokens/usedFrac):null;
+            winUsage={...prev.usage,estimatedFullTokens:estFull};
+          }
+        }else if(winKey&&data.usage&&data.usage.summaryStale!==true){
+          lastQuotaWindowUsage.delete(winKey);
+        }
         const showUsage=Boolean(winUsage&&typeof winUsage.observedTokens==='number'&&winUsage.observedTokens>0);
         hidden(usageRow,!showUsage);
         if(showUsage){
