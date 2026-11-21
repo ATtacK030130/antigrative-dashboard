@@ -105,6 +105,31 @@ cd antigrative-dashboard
 python manage.py install
 ```
 
+#### Linux / Ubuntu 安装与启动说明（针对官方便携版目录）
+
+Antigravity 桌面端在 Linux / Ubuntu 上官方分发的是便携压缩包（`Antigravity.tar.gz`），解压后通常位于用户自定义目录（例如 `~/Antigravity-x64/`），**不会**自动安装到 `/opt/Antigravity`、`/opt/antigravity`、`/usr/share/antigravity`，也不会把 `antigravity` 加入 `PATH`。
+
+1. **首次安装插件（指定 `app.asar` 路径）**
+   如果直接执行 `sh ./install.sh` 提示 `Antigravity desktop app not found`，请通过 `--app-path` 指定解压目录下的 `resources/app.asar`（安装器会将资源路径保存到 `~/.local/share/AntigravityPulse/settings.json`，后续无需重复指定）：
+   ```bash
+   sh ./install.sh --app-path ~/Antigravity-x64/resources/app.asar
+   # 或
+   python3 manage.py install --app-path ~/Antigravity-x64/resources/app.asar
+   ```
+
+2. **在 Antigravity 程序本体目录下生成带参数启动脚本**
+   Linux 便携版默认没有系统 `.desktop` 文件，且从终端启动可完整继承当前终端环境变量（如代理配置）。运行仓库根目录下的 `setup-linux-launcher.sh`（自动兼容 `python3` 与 `python`）：
+   ```bash
+   sh ./setup-linux-launcher.sh
+   ```
+   脚本会自动定位 Antigravity 程序本体目录（也可手动传 `--app-dir ~/Antigravity-x64`、`--exe` 或 `--app-path`），并在该目录下生成 `start-antigravity.sh`（已存在时默认不覆盖，传 `--force` 可重建，传 `--name` 可自定义脚本名）。
+
+3. **启动 Antigravity（开启内嵌状态栏）**
+   完全退出已打开的 Antigravity 后，直接运行程序本体目录下的启动脚本即可自动带上 `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` 启动：
+   ```bash
+   ~/Antigravity-x64/start-antigravity.sh
+   ```
+
 **已有安装如何迁移：** 如果旧仓库无法访问，旧版（`<= v0.8.20`）App 更新器无法自行发现本次迁移。请下载新发布页的 ZIP，解压后执行一次 `python manage.py install`（Linux/macOS 使用 `python3`），再完整重启 App；之后 App 检查更新会使用新仓库。IDE 需要单独安装新版 VSIX；CLI 使用新 ZIP 重新执行 `python manage.py install-cli`，如之前指定过 `--language` 或 `--node`，请一并带上。
 
 完全退出并重新打开 Antigravity。打开对话，模型选择右侧就会出现额度与速率条。PowerShell 用户也可以运行 `./install.ps1`。
@@ -157,6 +182,7 @@ python manage.py install
 | 操作 | 命令 | 行为 |
 | --- | --- | --- |
 | 安装 / 更新插件 | `python manage.py install` | 复制运行时适配器，配置用户启动入口调试参数，保留其他配置和历史统计 |
+| 生成 Linux 启动脚本 | `sh ./setup-linux-launcher.sh` | 在 Linux 的 Antigravity 程序本体目录下生成带调试参数的 `start-antigravity.sh` |
 | 带调试端口启动 | `python manage.py launch` | 带 `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` 启动 Antigravity |
 | 停用 | `python manage.py disable` | 关闭插件，缩略条在下一次轮询隐藏 |
 | 启用 | `python manage.py enable` | 启动插件并重新显示控件 |
