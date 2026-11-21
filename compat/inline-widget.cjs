@@ -1306,7 +1306,8 @@ module.exports = function installAgPulseInlineWidget() {
         attribute(paceBadge,'title',pace.title);
       }
     }
-    const quotaError=language.errorMessage(data.error);
+    const isReconnectError=e=>e==='等待 Antigrative Dashboard 重新连接'||e==='等待 AG Pulse 重新连接'||e==='Waiting to reconnect'||e===t('reconnecting');
+    const quotaError=isReconnectError(data.error)?'':language.errorMessage(data.error);
     for(const [window,name]of[['5h','five'],['weekly','week']]){
       hidden($(`${name}-quota-section`),!visibleQuotaWindows.includes(window));
       const heading=t(window==='weekly'&&isArgon?'argonWeek':name);
@@ -1479,8 +1480,8 @@ module.exports = function installAgPulseInlineWidget() {
     pending=true;lastFetch=Date.now();
     refreshRequest=(async()=>{
       const composerModel=currentComposerModel();
-      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force,...(quotaRefresh?{quotaRefresh:true}:{}),...(composerModel?{composerModel}:{}),...(syncUsage?{usageSync:true}:{})});if(!current())return;if(force||quotaRefresh)lastQuotaHoverAt=Date.now();node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;if(result.usage?.scope&&data?.usage?.scope===usageScope.scope&&result.usage.scope!==usageScope.scope)result.usage=data.usage;data=result;hydrated=true;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
-      catch{if(current()&&data){data.connection='stale';data.error=t('reconnecting');render();}}
+      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force,...(quotaRefresh?{quotaRefresh:true}:{}),...(composerModel?{composerModel}:{}),...(syncUsage?{usageSync:true}:{})});if(!current())return;if(force||quotaRefresh)lastQuotaHoverAt=Date.now();node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(result.transient&&data&&(hydrated||data.speed||data.groups?.length)){data={...data,connection:'stale',error:null};render();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;if(result.usage?.scope&&data?.usage?.scope===usageScope.scope&&result.usage.scope!==usageScope.scope)result.usage=data.usage;data=result;hydrated=true;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
+      catch{if(current()&&data){data={...data,connection:'stale',error:null};render();}}
       finally{if(epoch===requestEpoch){pending=false;refreshRequest=null;}}
     })();
     return refreshRequest;

@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for pace forecasts, window usage and five-hour / weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.9.13](https://img.shields.io/badge/version-0.9.13-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.14](https://img.shields.io/badge/version-0.9.14-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.34.0](https://img.shields.io/badge/Antigravity-2.34.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.9.13:** Introduces a hybrid quota full-capacity estimator (earlier `2%` weekly cold start, cross-cycle Empirical Bayes warm start, anchor-relative mid-cycle reset isolation, Theil-Sen slope robustness, and two-stage official quota shift adaptation), bounds first-launch SQLite indexing waits so live context and quota windows render immediately, and fixes Windows PowerShell shortcut encoding for Chinese/non-ASCII paths (#14). [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.13) · [Compatibility](COMPATIBILITY.md).
+**v0.9.14:** Fixes the inline status bar unexpectedly disappearing mid-conversation on heavy sessions (transient bridge timeouts/reconnects no longer emit `enabled: false` or show reconnecting banners, and transient CDP heartbeat timeouts no longer dispose the live DOM widget), eliminates main-thread SQLite 5s lock stalls and cold-build blocking by offloading bulk index builds to the disk worker, and protects actively running 4–8 MiB conversations from cache eviction thrashing. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.14) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.9.13.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.9.14.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with

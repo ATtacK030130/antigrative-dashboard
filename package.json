@@ -1,6 +1,6 @@
 {
   "name": "antigrative-dashboard",
-  "version": "0.9.13",
+  "version": "0.9.14",
   "private": true,
   "description": "Compact Antigravity token throughput and quota widget",
   "license": "MIT",
