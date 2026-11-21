@@ -29,6 +29,8 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-11-01 / **v0.8.17（Issue #27）**：Windows App 与 IDE 共用本机端口发现，排除 TUN 产生的伪监听行；备用查询兼容报告中的 `State: 0`，同时验证 PID、环回／通配地址、未连接远端及有效端口，拒绝 `Bound`、`Closed` 等状态。HTTP 日志与 renderer 端口只作为补查提示，不能代替进程归属证明；最新端口缺失时，不再被其他监听端口或复用的旧端口掩盖。正常路径保留 netstat，异常路径一次批量 PowerShell 查询，沿用超时、输出上限及客户端退避。本地合成回归与真实 Windows netstat／CIM 检查通过，已安装代码成功发现 App 接口并取得 `GetUserStatus` 响应；宿主停在登录引导页，未完成登录后控件验收。报告者的 TUN `State: 0` 原始环境仍需其复测。
 
+2026-11-21 / **v0.9.12**：用量统计看板（`compat/usage-ui.cjs`）默认按严格白名单合并同一模型的思考/努力档位（`XHigh` / `High` / `Medium` / `Low` / `Minimal` / `Thinking` / `Max` / `Tiered` / `-n`），保持底层账本不变且不误合并 `Orchestrator (...)`、`Mini` 等独立变体，并在多档位明细行悬停时展示档位占比分布（#13）；修复空闲额度组滑动 `resetAt` 反复击穿缓存与前端周期用量偶发回落导致的上下文卡高度弹变；Windows 启动入口发现兼容重定向桌面与开始菜单路径及 `OneDrive*\Desktop`（#9）。已完成 Windows 11 本机实机测试及 Node / Python / IDE / 真实 Chromium 回归。
+
 2026-11-21 / **v0.9.11**：适配 **Antigravity Desktop 2.34.0+**（`language_server.exe` 命令行已移除 `--csrf_token` 并启用 `principal="sidecar"` Scoped Token）：`AntigravityClient` 与 `IdeClient` 在命令行缺失 `--csrf_token` 时自动回退至宿主注入的 `ANTIGRAVITY_CSRF_TOKEN`（日志缺失时支持经 PID 归属校验的 loopback HTTP `ANTIGRAVITY_LS_ADDRESS`）；在已验证健康的端点上将单接口 HTTP `403` 识别为 `RPC_RESTRICTED` 不清空端点并补充三语受限提示；新增 `TranscriptReader.readMetrics()` 解析 2.34.0 `transcript.jsonl` 中的 `input_tokens` / `cache_read_tokens` / `output_tokens` 作为轨迹接口受限时的只读兜底；`quotaModelFamily` 与 `quotaGroupKind` 补充 `neon` 归属 `gemini` 额度组。已在 Windows 11 本机 **Antigravity Desktop 2.34.0** 实机验证上下文窗口、5h/周额度、实时 TPS 与缓存率全部恢复，并完成全套 Node / IDE / Python 单元测试。
 
 2026-11-20 / **v0.9.10**：在上下文卡片（内嵌悬浮卡与原生侧边面板）及芯片/标签页提示中展示基于宿主真实遥测的对话压缩次数（`transcriptStats.compactionMarkers > 0` 时显示 `🗜`，支持英/简/繁三语），上下文占用环与进度条新增 `>= 75%` 警告色与 `>= 90%` 危险色，并修复 `localize()` 轮询覆盖动态芯片 `title` 的抖动问题（#4、#7）；Windows 快捷方式自动注入逻辑（`compat/launch-config.mjs` 与 `compat/launch_config.py`）同步兼容 `yuaotian/antigravity-proxy` 的 `AntigravityLauncher.exe` 桌面快捷方式并继续排除 IDE 快捷方式（#3、#6）。两项改动均已通过 Windows / Ubuntu / macOS 三平台完整 `Verify` CI（含 `tools/check-ide-ui.mjs` 与全部单元测试）。
@@ -50,7 +52,7 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-11-17 / **v0.9.1**：项目维护与 App 更新源迁移至 `ATtacK030130/antigrative-dashboard`（保留原有 IDE 扩展标识 `you-should-know-me.antigrative-dashboard-ide` 与本地数据目录）。新增像素猫 / 简约速度卡样式切换、额度消耗速率状态与重置前余量线性预测、当前额度周期实测用量参考、Token 用量「本机全部 / 当前账号」范围切换、以及跟随宿主 Appearance 字体的 `--pulse-font` / `--pulse-font-mono` 同步。已在 Windows 11 本机 **Antigravity Desktop 2.32.2** 通过宿主资源/SDK 检查与插件挂载（`v0.9.1`），并完成 Node 482/483（1 skip）、IDE 67/67、Python 95/95（1 skip）及 Edge CDP 端到端浏览器测试。
 
-专用包为 `antigrative-dashboard-ide-0.9.11.vsix`，安装入口与桌面 App 独立。
+专用包为 `antigrative-dashboard-ide-0.9.12.vsix`，安装入口与桌面 App 独立。
 Windows 11 / IDE 2.5.5（VS Code base 1.107.0）已用真实对话验证速率、缓存、上下文、重启历史恢复和窄宽布局。IDE 2.6.0 的控件挂载和真实对话数据已由用户验收；Linux/macOS 的登录后 IDE 界面仍待实机验证。
 Linux/macOS 的 IDE 进程筛选、端口归属、安装打包和 Trusted Types 浏览器 fixture 纳入 CI；登录后的 IDE GUI 仍待实机验收。
 当前仅支持默认用户 profile；私有 Preact/DOM 或 RPC 变化可能需要适配，不能保证未来 IDE 版本无需维护。

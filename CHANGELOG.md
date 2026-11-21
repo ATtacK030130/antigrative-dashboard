@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.12 — 2026-11-21
+
+- Merge thinking/effort tiers of the same model across the Token Usage dashboard (`compat/usage-ui.cjs`) — legend, stacked bar chart, tooltips, and breakdown table — using a strict tier allowlist (`XHigh` / `Extra High` / `High` / `Medium` / `Low` / `Minimal` / `Thinking` / `Max` / `Tiered` / `-n`, normalizing `claude-sonnet-4-6` ↔ `Claude Sonnet 4.6`) while preserving distinct roles/variants (`Orchestrator (...)`, `Gemini 4 Hydrogen (Orchestrator)`, `Mini`, `Flash` vs `Pro`) and untouched disk ledgers; hovering a multi-tier breakdown row shows a lightweight per-tier share breakdown tooltip (#13).
+- Eliminate quota-window usage row flicker and context-card layout jumps (`sidecars/panel/usage.mjs`, `compat/inline-widget.cjs`, `sidecars/panel/app.js`): exclude idle (`remaining >= 1`) quota groups' sliding `resetAt` timestamps from cache signatures, keep per-window fallback cache entries across transient refreshes, and retain same-account/same-cycle window usage in the UI until fresh figures settle.
+- Resolve Windows redirected Desktop and Start Menu Programs paths via Win32 Known Folder / Shell Folders APIs and `OneDrive*\Desktop` in both `compat/launch_config.py` and `compat/launch-config.mjs` so moved Desktop shortcuts are discovered and injected cleanly (#9).
+
 ## 0.9.11 — 2026-11-21
 
 - Adapt **Antigravity Desktop 2.34.0+**, where `language_server` no longer exposes `--csrf_token` on the process command line and enforces scoped sidecar tokens: fall back to the host-injected `ANTIGRAVITY_CSRF_TOKEN` (and PID-verified loopback HTTP `ANTIGRAVITY_LS_ADDRESS` when logs are unavailable) in `AntigravityClient` and `IdeClient`, restoring live context window, five-hour/weekly quotas, TPS, and cache hit collection.

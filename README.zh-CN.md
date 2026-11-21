@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.11](https://img.shields.io/badge/version-0.9.11-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.12](https://img.shields.io/badge/version-0.9.12-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.34.0](https://img.shields.io/badge/Antigravity-2.34.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.11：** 适配 **Antigravity Desktop 2.34.0+**（命令行移除 `--csrf_token` 后自动回退至宿主注入的 Sidecar 凭据），全面恢复上下文窗口、5h/周额度、实时 TPS 与缓存率读取；增强 Scoped Token 单接口 `403` 容错与 `transcript.jsonl` 精确 Token 降级兜底，并补充 `Neon` 模型至 Gemini 额度组自动归类。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.11) · [兼容性](COMPATIBILITY.md)。
+**v0.9.12：** 用量统计图例、柱状图、提示窗与明细表默认合并同一模型的不同思考档位（`XHigh` / `High` / `Medium` / `Thinking` 等），并在多档位明细行悬停时轻提示档位分布（#13）；修复上下文卡「周期用量」偶发延迟加载导致卡片弹变的问题；修复 Windows 桌面/开始菜单路径重定向时漏掉快捷方式注入的问题（#9）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.12) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.11.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.12.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
