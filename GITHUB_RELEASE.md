@@ -1,7 +1,8 @@
 # Antigrative Dashboard v0.9.12
 
-Polishes Token Usage aggregation, quota-window stability, and Windows shortcut discovery on **Antigravity Desktop 2.34.0+**:
+Introduces a permanent O(1)-heap SQLite usage index to eliminate large-history OOM crashes, alongside Token Usage tier merging, zero-flicker quota windows, and Windows redirected shortcut support on **Antigravity Desktop 2.34.0+**:
 
+- **Permanent O(1)-memory usage aggregation (no more 192 MB OOM crashes):** Replaces full-history in-memory `Map`/`Set` aggregation with a persistent incremental SQLite index (`.usage-index-v1.sqlite`, bounded 8 MiB page cache, zero re-reads of unchanged history files, streaming parser for >1 MiB legacy JSON, automatic self-healing on corruption), caps `MetricsStore.sessions` and inactive `TrajectoryReader` caches, adds 128 MiB heap backpressure during backfill, and removes the hardcoded `--max-old-space-size=192` crash cap. Verified at ~8–11 MB V8 heap across 200,000 historical request records.
 - **Merged model thinking tiers (#13):** Combines thinking/effort tiers (`XHigh`, `High`, `Medium`, `Low`, `Minimal`, `Thinking`, `Max`, `Tiered`) of the same model across the usage legend, stacked bar chart, tooltips, and breakdown table without altering disk ledgers or merging distinct variants/roles (`Orchestrator (...)`, `Mini`). Hovering any multi-tier model row in the breakdown table reveals a lightweight per-tier share tooltip.
 - **Zero-flicker quota-window usage:** Fixes occasional missing/jumping "Cycle usage" rows in the context card by ignoring idle groups' sliding `resetAt` timestamps in cache keys and preserving same-cycle usage across transient polls.
 - **Windows redirected Desktop & Programs support (#9):** Resolves relocated Windows Known Folders (e.g. `D:\Users\<user>\Desktop` or `OneDrive\Desktop`) during shortcut discovery and flag injection across both Python and Node runtimes.
