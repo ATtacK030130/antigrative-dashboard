@@ -107,6 +107,31 @@ python manage.py install
 
 On Linux / macOS, use `python3 manage.py install` or `sh install.sh` (and `python3` for the lifecycle commands below). Never run the installer with sudo.
 
+#### Linux / Ubuntu portable archive installation & launcher script
+
+On Linux / Ubuntu, the official Antigravity Desktop build is distributed as a portable archive (`Antigravity.tar.gz`) that extracts into a user-chosen folder (such as `~/Antigravity-x64/`) rather than installing into `/opt/Antigravity`, `/opt/antigravity`, or `/usr/share/antigravity` or adding `antigravity` to `PATH`.
+
+1. **First-time plugin install (specify `app.asar` when extracted to a custom folder):**
+   If `sh ./install.sh` reports `Antigravity desktop app not found`, pass `--app-path` pointing to `resources/app.asar` inside your extracted Antigravity folder (the installer saves `appResources` in `~/.local/share/AntigravityPulse/settings.json` for subsequent runs):
+   ```bash
+   sh ./install.sh --app-path ~/Antigravity-x64/resources/app.asar
+   # or
+   python3 manage.py install --app-path ~/Antigravity-x64/resources/app.asar
+   ```
+
+2. **Generate a launcher `.sh` script inside the Antigravity application directory:**
+   Portable Linux builds do not ship a system `.desktop` entry by default, and launching from a terminal preserves your shell environment variables (such as proxy settings). Run `setup-linux-launcher.sh` (automatically detects `python3` or `python`):
+   ```bash
+   sh ./setup-linux-launcher.sh
+   ```
+   It locates your Antigravity application directory (or accepts `--app-dir ~/Antigravity-x64`, `--exe`, `--app-path`, `--name`, `--force`) and creates an executable `start-antigravity.sh` directly inside the Antigravity directory (without overwriting an existing script unless `--force` is passed).
+
+3. **Launch Antigravity with the inline widget enabled:**
+   Fully quit any running Antigravity instance, then start it via the generated script in your Antigravity directory:
+   ```bash
+   ~/Antigravity-x64/start-antigravity.sh
+   ```
+
 **Moving an existing installation:** If the previous repository is unavailable, older App releases (`<= v0.8.20`) cannot find this update themselves. Download the new release ZIP and run `python manage.py install` once (`python3` on Linux/macOS), then fully restart the App; later App checks use this repository. IDE users install the new VSIX separately. For CLI, rerun `python manage.py install-cli` from the new ZIP, including any previously chosen `--language` or `--node` options.
 
 Fully quit and reopen Antigravity. Open a conversation: the strip appears beside the model selector. PowerShell users can also run `./install.ps1`.
@@ -166,6 +191,7 @@ Run these commands from the project directory:
 | Action | Command | What happens |
 | --- | --- | --- |
 | Install or update | `python manage.py install` | Copy runtime adapter, configure user launch entry points, and preserve saved data |
+| Generate Linux launcher | `sh ./setup-linux-launcher.sh` | Create `start-antigravity.sh` inside the Linux Antigravity app folder with loopback debugging flags |
 | Launch with inline bar | `python manage.py launch` | Start Antigravity Desktop with loopback `--remote-debugging-port=0 --remote-debugging-address=127.0.0.1` |
 | Disable | `python manage.py disable` | Disable the plugin and hide the strip on its next poll |
 | Enable | `python manage.py enable` | Start the plugin and show the strip again |
