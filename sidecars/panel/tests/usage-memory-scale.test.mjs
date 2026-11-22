@@ -6,6 +6,7 @@ import {mkdtemp,mkdir,open,rm,stat,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import {pathToFileURL} from 'node:url';
 import {UsageLedger,DesktopUsage} from '../usage.mjs';
 import {INDEX_FILENAME} from '../usage-index.mjs';
@@ -83,6 +84,16 @@ test('100k historical JSON records summarize and update incrementally under --ma
     assert.equal(warm.requests,totalRecords);
     assert.equal(warm.totalTokens,totalRecords*600);
 
+    // Account-scoped quota window query must use the (account, at) index + CROSS JOIN (no O(N^2) stall).
+    const acctWarmStart=Date.now();
+    const acctWarm=await restarted.summary(acctA,now,{groups,quotaAccount:acctA});
+    const acctWarmMs=Date.now()-acctWarmStart;
+    assert.equal(restartReads,0);
+    assert.equal(acctWarm.requests,totalRecords/2);
+    assert.equal(acctWarm.totalTokens,(totalRecords/2)*600);
+    assert.equal(acctWarm.quotaWindows['gemini:5h'].observedTokens,10*600);
+    assert.ok(acctWarmMs<5000,'Expected indexed account-scoped quota summary, observed '+acctWarmMs+'ms');
+
     // Incremental update of 1 conversation reads only 1 file.
     await restarted.ingest(acctA,'99999999-1111-1111-1111-111111111111',{
       trajectory:{steps:[],generatorMetadata:[{chatModel:{modelDisplayName:'Gemini 3.8 Pro',chatStartMetadata:{createdAt:'2026-10-30T07:00:00Z'},usage:{apiProvider:'API_PROVIDER_GOOGLE_GEMINI',responseId:'inc-1',inputTokens:'100',cacheReadTokens:'400',cacheWriteTokens:'0',outputTokens:'100'}}}]}
@@ -96,7 +107,7 @@ test('100k historical JSON records summarize and update incrementally under --ma
     assert.equal(inc.totalTokens,(totalRecords+1)*600);
     assert.equal(inc.quotaWindows['gemini:5h'].observedTokens,11*600);
     assert.ok(finalHeapMb<80,'Expected bounded V8 heap, observed '+finalHeapMb+'MB');
-    console.log(JSON.stringify({coldMs,coldHeapMb,warmMs,incMs,finalHeapMb}));
+    console.log(JSON.stringify({coldMs,coldHeapMb,warmMs,acctWarmMs,incMs,finalHeapMb}));
   `;
 
   const {stdout}=await execFileAsync(process.execPath,['--max-old-space-size=128','--input-type=module','-e',script],{timeout:110000});
@@ -242,4 +253,70 @@ test('MetricsStore LRU cap, TrajectoryReader cache cap, and DesktopUsage memory 
   assert.equal(trimmedReader,1);
   assert.equal(trimmedStore,1);
   assert.equal(tracker.status,'syncing');
+});
+
+test('account-scoped quota window upgrades legacy index and keeps indexed join plan',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'ag-usage-acct-plan-'));
+  t.after(()=>rm(dir,{recursive:true,force:true}));
+  await mkdir(join(dir,acctA),{recursive:true});
+  await mkdir(join(dir,acctB),{recursive:true});
+
+  const now=Date.parse('2026-10-30T08:00:00Z');
+  const inWinAt=Date.parse('2026-10-30T06:00:00Z');
+  const oldAt=Date.parse('2026-09-01T00:00:00Z');
+  const groups=[{id:'gemini',name:'Gemini',windows:{'5h':{available:true,remaining:0.8,resetAt:new Date(now+2*3600000).toISOString()}}}];
+
+  const histRecords=[];
+  for(let i=0;i<2000;i++)histRecords.push(makeRow(`old-${i}`,{at:oldAt+i*1000,model:'Gemini 3.8 Pro'}));
+  histRecords.push(makeRow('dup-win',{at:inWinAt,model:'Gemini 3.8 Pro',uncached:100,cacheRead:100,cacheWrite:0,output:100}));
+  await writeFile(join(dir,acctA,`${hash(cid(1))}.json`),JSON.stringify({schema:1,account:acctA,records:histRecords}));
+  await writeFile(join(dir,acctA,`${hash(cid(2))}.json`),JSON.stringify({
+    schema:1,account:acctA,records:[
+      makeRow('dup-win',{at:inWinAt,model:'Gemini 3.8 Pro',uncached:200,cacheRead:400,cacheWrite:0,output:100}),
+      makeRow('solo-win',{at:inWinAt+1000,model:'Gemini 3.8 Pro',uncached:100,cacheRead:200,cacheWrite:0,output:50}),
+    ],
+  }));
+  await writeFile(join(dir,acctB,`${hash(cid(3))}.json`),JSON.stringify({
+    schema:1,account:acctB,records:[makeRow('other-acct-win',{at:inWinAt,model:'Gemini 3.8 Pro',uncached:500,cacheRead:0,cacheWrite:0,output:500})],
+  }));
+
+  const first=await new UsageLedger(dir).summary('all',now,{groups,quotaAccount:acctA});
+  assert.equal(first.quotaWindows['gemini:5h'].observedTokens,700+350);
+
+  // Simulate an existing v0.9.12-v0.9.14 index lacking idx_source_rows_acct_at.
+  const indexPath=join(dir,INDEX_FILENAME);
+  const preDb=new DatabaseSync(indexPath);
+  try{preDb.exec('DROP INDEX IF EXISTS idx_source_rows_acct_at;');}finally{preDb.close();}
+
+  const acctSummary=await new UsageLedger(dir).summary(acctA,now,{groups,quotaAccount:acctA});
+  assert.equal(acctSummary.requests,2002);
+  assert.equal(acctSummary.quotaWindows['gemini:5h'].observedTokens,700+350);
+
+  const checkDb=new DatabaseSync(indexPath,{readOnly:true});
+  try{
+    const idx=checkDb.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_source_rows_acct_at'").get();
+    assert.equal(idx?.name,'idx_source_rows_acct_at');
+    const plan=checkDb.prepare(`
+      EXPLAIN QUERY PLAN
+      WITH in_range AS (
+        SELECT DISTINCT request_id
+        FROM source_rows
+        WHERE account = ? AND at IS NOT NULL AND at >= ? AND at <= ?
+      ),
+      winners AS (
+        SELECT s.request_id, s.at, s.model, s.total,
+               ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
+        FROM in_range a
+        CROSS JOIN source_rows s ON s.account = ? AND s.request_id = a.request_id
+      )
+      SELECT at, model, total
+      FROM winners
+      WHERE rn = 1 AND at IS NOT NULL AND at >= ? AND at <= ?
+    `).all(acctA,now-3*3600000,now+2*3600000,acctA,now-3*3600000,now+2*3600000);
+    const details=plan.map(r=>r.detail).join('\n');
+    assert.match(details,/USING INDEX idx_source_rows_acct_at \(account=\? AND at>\? AND at<\?\)/);
+    assert.match(details,/SEARCH s USING INDEX idx_source_rows_acct_req \(account=\? AND request_id=\?\)/);
+  }finally{
+    checkDb.close();
+  }
 });

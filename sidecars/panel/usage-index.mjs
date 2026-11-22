@@ -83,6 +83,7 @@ const ROW_INDEX_SQLS=[
   'CREATE INDEX IF NOT EXISTS idx_source_rows_req ON source_rows(request_id, total DESC, source_id ASC);',
   'CREATE INDEX IF NOT EXISTS idx_source_rows_acct_req ON source_rows(account, request_id, total DESC, source_id ASC);',
   'CREATE INDEX IF NOT EXISTS idx_source_rows_at ON source_rows(at) WHERE at IS NOT NULL;',
+  'CREATE INDEX IF NOT EXISTS idx_source_rows_acct_at ON source_rows(account, at) WHERE at IS NOT NULL;',
 ];
 
 function createRowIndexes(db){
@@ -105,6 +106,7 @@ function dropRowIndexes(db){
     DROP INDEX IF EXISTS idx_source_rows_req;
     DROP INDEX IF EXISTS idx_source_rows_acct_req;
     DROP INDEX IF EXISTS idx_source_rows_at;
+    DROP INDEX IF EXISTS idx_source_rows_acct_at;
   `);
 }
 
@@ -752,8 +754,8 @@ export async function syncAndSummarizeIndex({
                 winners AS (
                   SELECT s.request_id, s.at, s.model, s.total,
                          ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
-                  FROM source_rows s
-                  JOIN acct_in_range a ON a.request_id = s.request_id
+                  FROM acct_in_range a
+                  CROSS JOIN source_rows s ON s.request_id = a.request_id
                 )
                 SELECT at, model, total
                 FROM winners
@@ -769,9 +771,8 @@ export async function syncAndSummarizeIndex({
                   winners AS (
                     SELECT s.request_id, s.at, s.model, s.total,
                            ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
-                    FROM source_rows s
-                    JOIN in_range a ON a.request_id = s.request_id
-                    WHERE s.account = ?
+                    FROM in_range a
+                    CROSS JOIN source_rows s ON s.account = ? AND s.request_id = a.request_id
                   )
                   SELECT at, model, total
                   FROM winners
