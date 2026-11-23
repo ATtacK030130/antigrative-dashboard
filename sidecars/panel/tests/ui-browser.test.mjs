@@ -490,7 +490,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
     return { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
   }`);
 
-  const expectedMergedStressCount = 22;
+  const expectedMergedStressCount = 18;
   await evalJs(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot.getElementById('details-tab').click()`);
   await waitUntil(`() => {
     const vs = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot;
@@ -505,6 +505,9 @@ test('font sync, scope switching and quota window reference render end-to-end in
     const flashRow = vs.querySelector('#table-body tr[data-model="gemini 3.8 flash"]');
     const sonnetRow = vs.querySelector('#table-body tr[data-model="claude sonnet 4.6"]');
     const gptRow = vs.querySelector('#table-body tr[data-model="gpt 5.4"]');
+    const hydrogenRow = vs.querySelector('#table-body tr[data-model="gemini 4 hydrogen"]');
+    const deepseekRow = vs.querySelector('#table-body tr[data-model="deepseek r1"]');
+    const tableHeaders = [...vs.querySelectorAll('#table-head th')].map(n => n.textContent.trim());
     flashRow.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, clientX: 260 }));
     const tip = vs.getElementById('tip');
     const flashTip = {
@@ -524,20 +527,41 @@ test('font sync, scope switching and quota window reference render end-to-end in
     gptRow.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, clientX: 260 }));
     const singleTierTipHidden = tip.hidden;
     gptRow.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+    hydrogenRow.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, clientX: 260 }));
+    const hydrogenTip = {
+      hidden: tip.hidden,
+      title: tip.querySelector('.tip-title')?.textContent || '',
+      tiers: [...tip.querySelectorAll('.tip-model')].map(n => n.textContent.trim()),
+    };
+    hydrogenRow.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
     return {
       legendLabels,
+      tableHeaders,
+      totalMetrics: [...vs.querySelectorAll('#totals .metric')].map(m => ({ label: m.querySelector('label')?.textContent?.trim(), value: m.querySelector('.value')?.textContent?.trim() })),
       flashTotal: flashRow?.children[1]?.textContent || '',
+      flashCost: flashRow?.querySelector('.col-cost')?.textContent || '',
+      deepseekCost: deepseekRow?.querySelector('.col-cost')?.textContent || '',
       flashTip,
       sonnetTip,
+      hydrogenTip,
       hiddenAfterLeave,
       singleTierTipHidden,
     };
   }`);
-  assert.ok(tierMergeCheck.legendLabels.includes('Gemini 4 Carbon'), 'Carbon high+medium should merge into Gemini 4 Carbon');
-  assert.ok(tierMergeCheck.legendLabels.includes('Gemini 4 Neon'), 'Neon (High)+(XHigh) should merge into Gemini 4 Neon');
-  assert.ok(tierMergeCheck.legendLabels.includes('Gemini 4 Hydrogen'), 'Hydrogen xhigh should normalize to Gemini 4 Hydrogen');
-  assert.ok(tierMergeCheck.legendLabels.includes('Gemini 4 Hydrogen Orchestrator'), 'Orchestrator role must stay distinct from Gemini 4 Hydrogen');
-  assert.ok(tierMergeCheck.legendLabels.includes('Orchestrator (Neon)'), 'Non-tier parenthesized model name must be preserved');
+  assert.deepEqual(tierMergeCheck.tableHeaders, ['模型', '总 Token', '未缓存输入', '缓存读取', '输出', '缓存率', '换算金额']);
+  assert.equal(tierMergeCheck.totalMetrics.length, 6, 'Overview strip should render 6 KPI cards including total USD and est. weekly quota USD');
+  assert.ok(/^\$[\d,.]+K?USD$/.test(tierMergeCheck.totalMetrics[4].value), 'Cumulative cost card should show USD: ' + JSON.stringify(tierMergeCheck.totalMetrics[4]));
+  assert.ok(/^≈\$[\d,.]+K?USD$/.test(tierMergeCheck.totalMetrics[5].value), 'Predicted weekly quota card should show ≈ USD from quotaWindows: ' + JSON.stringify(tierMergeCheck.totalMetrics[5]));
+  assert.ok(/^\$[\d,]+\.\d{2,3}$/.test(tierMergeCheck.flashCost), 'Priced model should show USD estimate: ' + tierMergeCheck.flashCost);
+  assert.equal(tierMergeCheck.deepseekCost, '—', 'Unpriced model should show em-dash');
+  assert.ok(tierMergeCheck.legendLabels.includes('Carbon'), 'Carbon high+medium+orchestrator should merge into concise Carbon label');
+  assert.ok(tierMergeCheck.legendLabels.includes('Neon'), 'Neon (High)+(XHigh)+Orchestrator (Neon) should merge into concise Neon label');
+  assert.ok(tierMergeCheck.legendLabels.includes('Hydrogen'), 'Hydrogen xhigh+orchestrator should merge into concise Hydrogen label');
+  assert.ok(tierMergeCheck.legendLabels.includes('Argon'), 'Argon high+medium+orchestrator should merge into concise Argon label');
+  assert.equal(tierMergeCheck.legendLabels.some(l => /orchestrator/i.test(l)), false, 'Orchestrator variants should merge into their corresponding models');
+  assert.equal(tierMergeCheck.hydrogenTip.hidden, false, 'Merged Hydrogen + Orchestrator row should show mode/tier breakdown tooltip');
+  assert.ok(tierMergeCheck.hydrogenTip.title.includes('Gemini 4 Hydrogen'), 'Tooltip should display full model name: ' + tierMergeCheck.hydrogenTip.title);
+  assert.ok(tierMergeCheck.hydrogenTip.tiers.some(t => t.startsWith('Orchestrator')) && tierMergeCheck.hydrogenTip.tiers.some(t => t.startsWith('XHigh')), 'Hydrogen tooltip should include Orchestrator and XHigh: ' + JSON.stringify(tierMergeCheck.hydrogenTip.tiers));
   assert.ok(tierMergeCheck.legendLabels.includes('GPT-OSS 120B'), 'Hyphenated uppercase model base must be preserved');
   assert.ok(tierMergeCheck.legendLabels.includes('GPT 5.4') && tierMergeCheck.legendLabels.includes('GPT 5.4 Mini'), 'Mini variant must stay distinct from GPT 5.4');
   assert.equal(tierMergeCheck.flashTip.hidden, false, 'Multi-tier row hover should show tier breakdown tooltip');
@@ -556,18 +580,11 @@ test('font sync, scope switching and quota window reference render end-to-end in
     const head = vs.querySelector('.page-head').getBoundingClientRect();
     const body = vs.getElementById('page-body');
     const br = body.getBoundingClientRect();
-    const chart = vs.querySelector('.chart').getBoundingClientRect();
-    const rows = [...vs.querySelectorAll('#table-body tr')];
-    const visibleRows = rows.filter(r => r.getBoundingClientRect().bottom <= br.bottom + 1).length;
+    const chartWrap = vs.querySelector('.chart-wrap').getBoundingClientRect();
+    const iceberg = vs.querySelector('svg.iceberg');
+    const punchRows = vs.querySelectorAll('.punch .u-label.row').length;
     const legendDot = vs.querySelector('#legend .dot').getBoundingClientRect();
     const tableDot = vs.querySelector('#table-body .dot').getBoundingClientRect();
-    const stacks = [...vs.querySelectorAll('.stack')].filter(s => s.querySelector('.bar-segment'));
-    const maxStackH = Math.max(0, ...stacks.map(s => s.getBoundingClientRect().height));
-    const maxStackDiff = Math.max(0, ...stacks.map(s => {
-      const h = s.getBoundingClientRect().height;
-      const sum = [...s.children].reduce((acc, b) => acc + parseFloat(b.style.height), 0);
-      return Math.abs(h - sum);
-    }));
     const pinBefore = {
       localeTop: vs.getElementById('locale').getBoundingClientRect().top,
       refreshTop: vs.getElementById('refresh').getBoundingClientRect().top,
@@ -577,33 +594,31 @@ test('font sync, scope switching and quota window reference render end-to-end in
     };
     return {
       frame: { x: Math.round(dr.x), y: Math.round(dr.y), width: Math.round(dr.width), height: Math.round(dr.height) },
-      chartFrame: { x: Math.round(chart.x), width: Math.round(chart.width) },
+      chartFrame: { x: Math.round(chartWrap.x), width: Math.round(chartWrap.width) },
       headBottom: head.bottom,
       bodyTop: br.top,
       bodyScrollTop: body.scrollTop,
       bodyScrollHeight: body.scrollHeight,
       bodyClientHeight: body.clientHeight,
-      chartVisible: vs.querySelector('.chart').getBoundingClientRect().bottom <= br.bottom + 1,
+      icebergVisible: !!iceberg && iceberg.getBoundingClientRect().bottom <= br.bottom + 1,
       chartWrapNoVScroll: vs.querySelector('.chart-wrap').scrollHeight <= vs.querySelector('.chart-wrap').clientHeight + 1,
-      headVisible: vs.querySelector('#table-head').getBoundingClientRect().bottom <= br.bottom + 1,
-      visibleRows,
+      punchRows,
+      hasStyleToggle: vs.querySelectorAll('[data-chart-style]').length > 0,
+      hasStackedBars: vs.querySelectorAll('.bar-segment').length > 0,
       legendDot: [Math.round(legendDot.width), Math.round(legendDot.height)],
       tableDot: [Math.round(tableDot.width), Math.round(tableDot.height)],
-      maxStackH,
-      maxStackDiff,
       pinBefore,
     };
   }`);
   assert.deepEqual(detailsMetrics.frame, overviewBox, 'overview and details share identical outer frame');
   assert.ok(detailsMetrics.bodyTop >= detailsMetrics.headBottom - 1, 'scrollable page-body starts below pinned header (scrollbar avoids corner)');
-  assert.equal(detailsMetrics.chartVisible, true, 'bar chart should fit cleanly above the fold');
+  assert.equal(detailsMetrics.icebergVisible, true, 'iceberg chart should fit cleanly above the fold');
   assert.equal(detailsMetrics.chartWrapNoVScroll, true, 'chart-wrap must not introduce vertical scrollbar/clipping');
-  assert.equal(detailsMetrics.headVisible, true, 'table header should fit cleanly above the fold');
-  assert.ok(detailsMetrics.visibleRows >= 5, `at least 5 table rows should be visible above the fold at 1280x800, got ${detailsMetrics.visibleRows}`);
+  assert.equal(detailsMetrics.punchRows, expectedMergedStressCount, 'punch card should list all merged models');
+  assert.equal(detailsMetrics.hasStyleToggle, false, 'stacked/mono style toggle should be removed');
+  assert.equal(detailsMetrics.hasStackedBars, false, 'stacked bar segments should be removed');
   assert.deepEqual(detailsMetrics.legendDot, [7, 7]);
   assert.deepEqual(detailsMetrics.tableDot, [7, 7]);
-  assert.ok(detailsMetrics.maxStackH <= 150.5 && detailsMetrics.maxStackH > 10, 'stack height respects 150px plot height: ' + detailsMetrics.maxStackH);
-  assert.ok(detailsMetrics.maxStackDiff < 0.25, 'stack height matches bar segments: ' + detailsMetrics.maxStackDiff);
 
   // Scroll to bottom and verify top-right controls, tabs, scope toggle, and sticky table header stay pinned
   const scrolled = await evalJs(`() => {
@@ -634,7 +649,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
   await evalJs(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot.getElementById('previous').click()`);
   const emptyChartFrame = await evalJs(`() => {
     const vs = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot;
-    const chart = vs.querySelector('.chart').getBoundingClientRect();
+    const chart = vs.querySelector('.chart-wrap').getBoundingClientRect();
     return {
       rows: vs.querySelectorAll('#table-body tr').length,
       chartFrame: { x: Math.round(chart.x), width: Math.round(chart.width) },
@@ -735,9 +750,58 @@ test('font sync, scope switching and quota window reference render end-to-end in
   transientOffline = false;
   await waitUntil(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('dot').classList.contains('live')`, 'dot recovers to live after transient offline');
 
+  // Unhydrated cold-start transient timeout must show connecting/loading state instead of contextUnknown/noQuota
+  const navigateAndWait = async url => {
+    let loaded;
+    const done = new Promise(resolve => { loaded = resolve; });
+    const prev = cdp.onEvent;
+    cdp.onEvent = msg => { prev?.(msg); if (msg.method === 'Page.loadEventFired') loaded(); };
+    try {
+      await cdp.command('Page.navigate', { url });
+      await Promise.race([done, new Promise((_, reject) => setTimeout(() => reject(new Error('Page load timeout: ' + url)), 15000))]);
+    } finally {
+      cdp.onEvent = prev;
+    }
+  };
+  transientOffline = true;
+  await navigateAndWait(`${baseUrl}/inline-fixture?cold=1`);
+  await waitUntil(`() => {
+    const bar = document.getElementById('ag-pulse-status-bar');
+    const sr = bar?.shadowRoot;
+    return bar?.dataset.layout === 'ready' && sr?.getElementById('dot')?.classList.contains('offline') && sr.getElementById('context-summary')?.textContent === '连接 Antigravity…';
+  }`, 'cold-start transient timeout renders connecting state');
+  const coldTransient = await evalJs(`() => {
+    const sr = document.getElementById('ag-pulse-status-bar').shadowRoot;
+    sr.querySelector('[data-card="context"]').click();
+    return {
+      contextSummary: sr.getElementById('context-summary').textContent,
+      fiveNoteHidden: sr.getElementById('five-note').hidden,
+      fiveNoteText: sr.getElementById('five-note').textContent,
+      weekNoteHidden: sr.getElementById('week-note').hidden,
+      weekNoteText: sr.getElementById('week-note').textContent,
+      quotaErrorHidden: sr.getElementById('quota-error').hidden,
+      quotaErrorText: sr.getElementById('quota-error').textContent,
+    };
+  }`);
+  assert.deepEqual(coldTransient, {
+    contextSummary: '连接 Antigravity…',
+    fiveNoteHidden: false,
+    fiveNoteText: '读取额度…',
+    weekNoteHidden: true,
+    weekNoteText: '',
+    quotaErrorHidden: true,
+    quotaErrorText: '',
+  });
+  transientOffline = false;
+  await evalJs(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.querySelector('.refresh').click()`);
+  await waitUntil(`() => {
+    const sr = document.getElementById('ag-pulse-status-bar').shadowRoot;
+    return sr.getElementById('dot').classList.contains('live') && sr.getElementById('context-percent').textContent !== '—' && sr.getElementById('five-note').hidden;
+  }`, 'cold-start widget hydrates cleanly once sidecar responds');
+
   // 2. Navigate to Sidecar Panel and verify Fira Code font sync + compact quota height + toks cache card
   signedIn = true;
-  await cdp.command('Page.navigate', { url: `${baseUrl}/` });
+  await navigateAndWait(`${baseUrl}/`);
   await waitUntil(`() => document.getElementById('strip-tps')?.textContent && document.getElementById('strip-tps').textContent !== '—'`, 'panel hydrated');
   await evalJs(`() => {
     document.querySelector('.widget').style.height = '580px';

@@ -83,6 +83,7 @@ const ROW_INDEX_SQLS=[
   'CREATE INDEX IF NOT EXISTS idx_source_rows_req ON source_rows(request_id, total DESC, source_id ASC);',
   'CREATE INDEX IF NOT EXISTS idx_source_rows_acct_req ON source_rows(account, request_id, total DESC, source_id ASC);',
   'CREATE INDEX IF NOT EXISTS idx_source_rows_at ON source_rows(at) WHERE at IS NOT NULL;',
+  'CREATE INDEX IF NOT EXISTS idx_source_rows_acct_at ON source_rows(account, at) WHERE at IS NOT NULL;',
 ];
 
 function createRowIndexes(db){
@@ -105,6 +106,7 @@ function dropRowIndexes(db){
     DROP INDEX IF EXISTS idx_source_rows_req;
     DROP INDEX IF EXISTS idx_source_rows_acct_req;
     DROP INDEX IF EXISTS idx_source_rows_at;
+    DROP INDEX IF EXISTS idx_source_rows_acct_at;
   `);
 }
 
@@ -736,24 +738,19 @@ export async function syncAndSummarizeIndex({
         if(Number.isFinite(minStart)&&Number.isFinite(maxEnd)){
           const winStmt=allBuckets
             ? db.prepare(`
-                WITH in_range AS (
-                  SELECT DISTINCT request_id
-                  FROM source_rows
-                  WHERE at IS NOT NULL AND at >= ? AND at <= ?
-                ),
-                acct_in_range AS (
-                  SELECT r.request_id
-                  FROM in_range r
-                  WHERE EXISTS (
-                    SELECT 1 FROM source_rows q
-                    WHERE q.account = ? AND q.request_id = r.request_id
-                  )
-                ),
-                winners AS (
+                WITH winners AS (
                   SELECT s.request_id, s.at, s.model, s.total,
                          ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
                   FROM source_rows s
-                  JOIN acct_in_range a ON a.request_id = s.request_id
+                  WHERE s.request_id IN (
+                    SELECT DISTINCT r.request_id
+                    FROM source_rows r
+                    WHERE r.at IS NOT NULL AND r.at >= ? AND r.at <= ?
+                      AND EXISTS (
+                        SELECT 1 FROM source_rows q
+                        WHERE q.account = ? AND q.request_id = r.request_id
+                      )
+                  )
                 )
                 SELECT at, model, total
                 FROM winners
@@ -761,17 +758,16 @@ export async function syncAndSummarizeIndex({
               `)
             : (scope===quotaAccount
               ? db.prepare(`
-                  WITH in_range AS (
-                    SELECT DISTINCT request_id
-                    FROM source_rows
-                    WHERE account = ? AND at IS NOT NULL AND at >= ? AND at <= ?
-                  ),
-                  winners AS (
+                  WITH winners AS (
                     SELECT s.request_id, s.at, s.model, s.total,
                            ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
                     FROM source_rows s
-                    JOIN in_range a ON a.request_id = s.request_id
                     WHERE s.account = ?
+                      AND s.request_id IN (
+                        SELECT DISTINCT request_id
+                        FROM source_rows
+                        WHERE account = ? AND at IS NOT NULL AND at >= ? AND at <= ?
+                      )
                   )
                   SELECT at, model, total
                   FROM winners
@@ -782,7 +778,7 @@ export async function syncAndSummarizeIndex({
           if(winStmt){
             const winIter=allBuckets
               ? winStmt.iterate(minStart,maxEnd,quotaAccount,minStart,maxEnd)
-              : winStmt.iterate(scope,minStart,maxEnd,scope,minStart,maxEnd);
+              : winStmt.iterate(scope,scope,minStart,maxEnd,minStart,maxEnd);
             for(const r of winIter){
               onCheck?.();
               const gid=classifyQuotaGroupId(groupInfos,r.model);

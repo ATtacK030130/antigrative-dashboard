@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.14](https://img.shields.io/badge/version-0.9.14-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.15](https://img.shields.io/badge/version-0.9.15-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.34.0](https://img.shields.io/badge/Antigravity-2.34.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.14：** 修复长对话或高负载下内嵌状态栏突然消失的问题（桥接层瞬态超时/队列满不再误发 `enabled: false`、卡片不弹重连提示，CDP 心跳瞬态超时不再主动销毁活跃 DOM），消除主线程 SQLite 5 秒锁阻塞并将首次冷建索引下放至后台 worker，同时保护运行中的 4–8 MiB 长会话缓存不被子代理轮询逐出重拉。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.14) · [兼容性](COMPATIBILITY.md)。
+**v0.9.15：** 用量详情改为单色仪表：冰山图把新增 Token 与缓存读取分在水线两侧，模型 × 时间打孔卡取代按模型配色的堆叠图，明细表新增缓存率和按官网 API 标价换算的金额。表格数字改用 K/M/B/T 单位（如 `736M`、`$1.23K`），用量再大列宽也不会撑开，悬停可看精确值。同时冷启动时明确显示「连接中」，并把更多 SQLite 汇总移出主线程。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.15) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.14.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.15.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带

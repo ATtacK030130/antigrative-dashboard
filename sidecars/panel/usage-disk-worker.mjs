@@ -67,6 +67,7 @@ async function summarize(){
   quotaAccount:workerData.quotaAccount||null,
   quotaGroups:workerData.quotaGroups||null,
   quotaWindowSpecs:workerData.quotaWindowSpecs||null,
+  dirtyFiles:Array.isArray(workerData.dirtyFiles)&&workerData.dirtyFiles.length?new Set(workerData.dirtyFiles):null,
   classifyQuotaGroupId,
   onCheck:check,
   yieldEveryMs:0,

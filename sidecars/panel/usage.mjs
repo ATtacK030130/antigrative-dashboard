@@ -9,7 +9,7 @@ import {discoverLocalConversations,conversationId} from './local-conversations.m
 import {setImmediate as yieldToLiveRequests} from 'node:timers/promises';
 import {delegatedIds} from './delegation.mjs';
 import {collectionFailure} from './collection-state.mjs';
-import {syncAndSummarizeIndex,indexExists} from './usage-index.mjs';
+import {syncAndSummarizeIndex} from './usage-index.mjs';
 import {QuotaEstimator} from './quota-estimator.mjs';
 const HASH=/^[a-f0-9]{64}$/,GUID=/^[a-f0-9-]{36}$/i;
 const hash=value=>createHash('sha256').update(value).digest('hex');
@@ -314,8 +314,11 @@ export class UsageLedger{
     const retry=this.diskSummaryRetries.get(cacheKey);
     if(this.diskSummaryPending||retry&&retry.at>Date.now())return;
     const staging=scope==='all'?join(this.directory,'.summary-all-'+randomUUID()+'.tmp'):join(this.directory,scope,'.summary-'+randomUUID()+'.tmp');
-    this.diskSummaryPending=this.diskJob({action:'summary',scope,rootDirectory:this.directory,directory:scope==='all'?this.directory:join(this.directory,scope),buckets:options.buckets||null,quotaAccount:options.quotaAccount||null,quotaGroups:options.groupInfos||null,quotaWindowSpecs:options.specs||null,localScope:LOCAL_SCOPE,staging,now,timeZone:this.timeZone,source:this.source},{isCurrent}).then(raw=>{
-      if(!raw||isCurrent()!==true)return;this.diskSummaryError=false;
+    const dirtyFiles=options.dirtyFiles?.length?options.dirtyFiles:null;
+    const revisionRetryMs=Number.isFinite(options.revisionRetryMs)&&options.revisionRetryMs>=0?options.revisionRetryMs:30000;
+    this.diskSummaryPending=this.diskJob({action:'summary',scope,rootDirectory:this.directory,directory:scope==='all'?this.directory:join(this.directory,scope),buckets:options.buckets||null,quotaAccount:options.quotaAccount||null,quotaGroups:options.groupInfos||null,quotaWindowSpecs:options.specs||null,dirtyFiles,localScope:LOCAL_SCOPE,staging,now,timeZone:this.timeZone,source:this.source},{isCurrent}).then(raw=>{
+      if(!raw||isCurrent()!==true)return null;this.diskSummaryError=false;
+      if(dirtyFiles&&this.revision===scanRevision){for(const k of dirtyFiles)this._dirtySources.delete(k);}
       const {quotaWindowCounts,...value}=raw;
       if(quotaWindowCounts)Object.defineProperty(value,'_quotaWindowCounts',{value:quotaWindowCounts,enumerable:false,configurable:true});
       if(options.specs?.length)Object.defineProperty(value,'_quotaWindowMeta',{value:quotaWindowMeta(options.specs),enumerable:false,configurable:true});
@@ -324,10 +327,11 @@ export class UsageLedger{
       else {
         const existing=this.caches.get(cacheKey);
         if(!existing||existing.revision<=scanRevision){this.storeSummaryCache(cacheKey,entry);}
-        const retryEntry={key:cacheKey,at:Date.now()+30000};
+        const retryEntry={key:cacheKey,at:Date.now()+revisionRetryMs};
         this._diskSummaryRetry=retryEntry;this.diskSummaryRetries.set(cacheKey,retryEntry);
       }
-    }).catch(()=>{if(isCurrent()===true){this.diskSummaryError=true;const retryEntry={key:cacheKey,at:Date.now()+30000};this._diskSummaryRetry=retryEntry;this.diskSummaryRetries.set(cacheKey,retryEntry);}}).finally(async()=>{for(const suffix of ['', '-journal'])await unlink(staging+suffix).catch(()=>{});this.diskSummaryPending=null;});
+      return value;
+    }).catch(()=>{if(isCurrent()===true){this.diskSummaryError=true;const retryEntry={key:cacheKey,at:Date.now()+30000};this._diskSummaryRetry=retryEntry;this.diskSummaryRetries.set(cacheKey,retryEntry);}return null;}).finally(async()=>{for(const suffix of ['', '-journal'])await unlink(staging+suffix).catch(()=>{});this.diskSummaryPending=null;});
   }
   async listAccountBuckets(){
     let names=[];try{names=await readdir(this.directory);}catch(e){if(e.code==='ENOENT')return [];throw e;}
@@ -381,8 +385,9 @@ export class UsageLedger{
       return fallbackCached?{...finalize(fallbackCached.value,!cached,false),summaryStale:true}:unknown();
     }
     // Never open the shared SQLite index on the main thread while a worker is
-    // already updating it, and offload cold bulk builds during foreground polls
-    // so main-thread SQLite cannot block live metrics or CDP heartbeats.
+    // already updating it, and offload multi-file (>16) foreground polls to the
+    // disk worker even when the SQLite index already exists so synchronous
+    // DatabaseSync calls cannot freeze the event loop past maxWaitMs.
     if(maxWaitMs>0&&this.diskSummaryPending){
       return fallbackCached?{...finalize(fallbackCached.value,!cached,false),summaryStale:true}:unknown();
     }
@@ -391,9 +396,29 @@ export class UsageLedger{
       for(const entry of bucketEntries){
         for(const name of entry.files)if(/^[a-f0-9]{64}\.json$/.test(name))totalFiles++;
       }
-      if(totalFiles>16&&!(await indexExists(this.directory))){
+      if(totalFiles>16){
         if(!isCurrent())return null;
-        this.startDiskSummary(scope,now,scanRevision,cacheKey,isCurrent,{buckets:allBuckets?bucketNames:null,quotaAccount,groupInfos,specs,cacheTag});
+        const dirtySnapshot=this._dirtySources.size?[...this._dirtySources]:null;
+        this.startDiskSummary(scope,now,scanRevision,cacheKey,isCurrent,{buckets:allBuckets?bucketNames:null,quotaAccount,groupInfos,specs,cacheTag,dirtyFiles:dirtySnapshot,revisionRetryMs:2000});
+        const pending=this.diskSummaryPending;
+        if(pending){
+          let timer;
+          try{
+            const raced=await Promise.race([
+              pending.then(v=>({done:true,value:v})),
+              new Promise(resolve=>{timer=setTimeout(()=>resolve({done:false}),maxWaitMs);timer.unref?.();}),
+            ]);
+            if(raced.done&&raced.value){
+              if(!isCurrent())return null;
+              const stillWriting=allBuckets?this.usageWrites.size>0:Boolean(this.usageWrites.get(scope));
+              if(this.revision===scanRevision&&!stillWriting)return finalize(raced.value,false,true);
+              return {...finalize(raced.value,false,false),summaryStale:true};
+            }
+          }finally{
+            clearTimeout(timer);
+          }
+          if(!isCurrent())return null;
+        }
         return fallbackCached?{...finalize(fallbackCached.value,!cached,false),summaryStale:true}:unknown();
       }
     }

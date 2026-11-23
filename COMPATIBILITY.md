@@ -29,6 +29,8 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-11-01 / **v0.8.17（Issue #27）**：Windows App 与 IDE 共用本机端口发现，排除 TUN 产生的伪监听行；备用查询兼容报告中的 `State: 0`，同时验证 PID、环回／通配地址、未连接远端及有效端口，拒绝 `Bound`、`Closed` 等状态。HTTP 日志与 renderer 端口只作为补查提示，不能代替进程归属证明；最新端口缺失时，不再被其他监听端口或复用的旧端口掩盖。正常路径保留 netstat，异常路径一次批量 PowerShell 查询，沿用超时、输出上限及客户端退避。本地合成回归与真实 Windows netstat／CIM 检查通过，已安装代码成功发现 App 接口并取得 `GetUserStatus` 响应；宿主停在登录引导页，未完成登录后控件验收。报告者的 TUN `State: 0` 原始环境仍需其复测。
 
+2026-11-23 / **v0.9.15**：用量详情改为单色仪表（`compat/usage-ui.cjs`：冰山图按水线拆分新增与缓存读取、模型 × 时间打孔卡、明细表以缓存率和官网 API 标价换算金额取代缓存写入列，Orchestrator 并入基础模型）；表格数字 ≥ 1,000 时以 3 位有效数字加 K/M/B/T 显示、金额 ≥ $1,000 同理，悬停显示精确值；`compat/inline-widget.cjs` 冷启动未水合时收到瞬态离线显示「连接 Antigravity… / 读取额度…」；`sidecars/panel/usage.mjs` 对 `> 16` 个文件的前台汇总即使索引已存在也下放 disk worker（在 `maxWaitMs` 内等待结果、转交脏文件、过期重试 `2s`）；`sidecars/panel/usage-index.mjs` 新增 `idx_source_rows_acct_at` 并改用 `IN` 子查询，账号额度窗口查询不再全表扫描。本版运行文件（`compat`、`sidecars`、`assets`）与 Windows 11 / Antigravity Desktop 2.34.0 上的当前安装版逐字节一致。本机回归：Node 单元 524 项中 522 通过、1 项跳过、`ui-browser.test.mjs` 1 项失败（`Renderer command failed: -32000`，在未修改的 v0.9.14 标签上同样失败，属本机 Chromium 环境问题，非本版引入）；24 项 Playwright UI 检查（含新增 `check-usage-mono-ui.mjs`）、IDE 单元及 Python 生命周期测试全部通过。
+
 2026-11-22 / **v0.9.14**：修复长对话或高负载下内嵌状态栏突然消失的问题（`compat/runtime-ui.mjs` 桥接层 15s 超时/队列满/绑定异常不再返回 `enabled: false`，`inflight >= 8` 即时回包；`compat/inline-widget.cjs` 收到瞬态离线时保留已有指标且不在卡片内弹重连提示；桌面端 CDP 心跳单次 5s 超时容错且无损重连不销毁活 DOM）；消除主线程 SQLite 5s 锁阻塞（主线程 `busy_timeout` 降至 `250ms`、`SQLITE_BUSY` 禁止误删健康索引、冷建下放后台 worker、`usage.snapshot()` 异常兜底）；恢复 `TrajectoryReader` 默认 `cacheBudgetBytes = budgetBytes`（`8 MiB`）并在 `trim()` 中优先淘汰已结束会话以保护运行中的长对话。已完成 Windows 11 实机验收及全量 Node / IDE 回归测试。
 
 2026-11-21 / **v0.9.13**：新增三层混合额度满额估算器（`sidecars/panel/quota-estimator.mjs`）：周窗口冷启动门槛降至 `2%`（且新增请求 `>= 5`），支持中途重置后全量按新锚点隔离（含请求数锚点）、Theil-Sen 中位数斜率纠偏、跨周期经验贝叶斯收缩（`quota-calibration-v1.json` 原子持久化）以及“展示即时跟随 + 双段不重叠确认才快速更新先验”的官方调额变点检测；桌面端（`sidecars/panel/main.mjs`）与 IDE（`ide/main.mjs`）常规轮询统一设置 `maxWaitMs: 350` 前台上限，彻底消除首次冷建 `.usage-index-v1.sqlite` 阻塞上下文与 5h/周额度首包的问题；修复 Windows 中文用户名/中文重定向桌面/`Antigravity (代理).lnk` 等非 ASCII 路径在 CP936/GBK 代码页下 PowerShell stdin 乱码导致的快捷方式写入失败（#14）。已完成 Windows 11 本机实机测试、`.zip`/`.vsix` 产物完整性校验及 Node / IDE / Python 回归测试。
@@ -56,7 +58,7 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-11-17 / **v0.9.1**：项目维护与 App 更新源迁移至 `ATtacK030130/antigrative-dashboard`（保留原有 IDE 扩展标识 `you-should-know-me.antigrative-dashboard-ide` 与本地数据目录）。新增像素猫 / 简约速度卡样式切换、额度消耗速率状态与重置前余量线性预测、当前额度周期实测用量参考、Token 用量「本机全部 / 当前账号」范围切换、以及跟随宿主 Appearance 字体的 `--pulse-font` / `--pulse-font-mono` 同步。已在 Windows 11 本机 **Antigravity Desktop 2.32.2** 通过宿主资源/SDK 检查与插件挂载（`v0.9.1`），并完成 Node 482/483（1 skip）、IDE 67/67、Python 95/95（1 skip）及 Edge CDP 端到端浏览器测试。
 
-专用包为 `antigrative-dashboard-ide-0.9.14.vsix`，安装入口与桌面 App 独立。
+专用包为 `antigrative-dashboard-ide-0.9.15.vsix`，安装入口与桌面 App 独立。
 Windows 11 / IDE 2.5.5（VS Code base 1.107.0）已用真实对话验证速率、缓存、上下文、重启历史恢复和窄宽布局。IDE 2.6.0 的控件挂载和真实对话数据已由用户验收；Linux/macOS 的登录后 IDE 界面仍待实机验证。
 Linux/macOS 的 IDE 进程筛选、端口归属、安装打包和 Trusted Types 浏览器 fixture 纳入 CI；登录后的 IDE GUI 仍待实机验收。
 当前仅支持默认用户 profile；私有 Preact/DOM 或 RPC 变化可能需要适配，不能保证未来 IDE 版本无需维护。

@@ -1178,6 +1178,8 @@ module.exports = function installAgPulseInlineWidget() {
     }
     hidden(root.querySelector('[data-card="speed"]'),false);
     hidden(root.querySelector('[data-card="cache"]'),false);
+    const isReconnectError=e=>e==='等待 Antigrative Dashboard 重新连接'||e==='等待 AG Pulse 重新连接'||e==='Waiting to reconnect'||e===t('reconnecting');
+    const waitingInitial=Boolean((data.transient||(!hydrated&&data.connection==='offline'&&(!data.error||isReconnectError(data.error))))&&!speed&&!groups.length);
     const context=speed?.context,hasCapacity=typeof context?.usedFraction==='number';
     const ringColor=!hasCapacity?'var(--pulse-ring)':context.usedFraction>=0.9?'var(--pulse-danger)':context.usedFraction>=0.75?'var(--pulse-warning)':'var(--pulse-ring)';
     hidden(root.querySelector('[data-card="context"]'),false);
@@ -1185,7 +1187,7 @@ module.exports = function installAgPulseInlineWidget() {
     text('context-percent',hasCapacity?`${Math.round(context.usedFraction*100)}%`:'—');
     style($('context-ring'),'--used-angle',`${hasCapacity?Math.min(1,context.usedFraction)*360:0}deg`);
     style($('context-ring'),'--ring-color',ringColor);
-    text('context-summary',hasCapacity?t('contextUsed',{used:Math.round(context.usedFraction*100),remaining:Math.round(context.remainingFraction*100)}):collectionActive?'—':t(empty?'waitingRequest':'contextUnknown'));
+    text('context-summary',hasCapacity?t('contextUsed',{used:Math.round(context.usedFraction*100),remaining:Math.round(context.remainingFraction*100)}):collectionActive?'—':t(waitingInitial?'connecting':empty?'waitingRequest':'contextUnknown'));
     text('context-tokens',context?t('contextTokens',{used:compact(context.usedTokens),max:context.maxTokens===null?'—':compact(context.maxTokens)}):'—');
     text('context-model',context?.model||'—');
     const transcript=speed?.transcriptStats;
@@ -1306,8 +1308,7 @@ module.exports = function installAgPulseInlineWidget() {
         attribute(paceBadge,'title',pace.title);
       }
     }
-    const isReconnectError=e=>e==='等待 Antigrative Dashboard 重新连接'||e==='等待 AG Pulse 重新连接'||e==='Waiting to reconnect'||e===t('reconnecting');
-    const quotaError=isReconnectError(data.error)?'':language.errorMessage(data.error);
+    const quotaError=data.transient||isReconnectError(data.error)?'':language.errorMessage(data.error);
     for(const [window,name]of[['5h','five'],['weekly','week']]){
       hidden($(`${name}-quota-section`),!visibleQuotaWindows.includes(window));
       const heading=t(window==='weekly'&&isArgon?'argonWeek':name);
@@ -1343,7 +1344,7 @@ module.exports = function installAgPulseInlineWidget() {
       attribute($(`${name}-track`),'aria-valuenow',remaining!==null?remaining*100:null);attribute($(`${name}-track`),'aria-valuemin','0');attribute($(`${name}-track`),'aria-valuemax','100');
       const isFirstWindow=window===visibleQuotaWindows[0];
       const subagentNote=composer?.kind==='subagent'&&isFirstWindow?t('accountQuota'):'';
-      const windowNote=quotaError&&!group?'':b?.disabled?t('disabledQuota'):!b?.available?t('noQuota'):'';
+      const windowNote=quotaError&&!group?'':waitingInitial?(isFirstWindow?t('loadingQuota'):''):b?.disabled?t('disabledQuota'):!b?.available?t('noQuota'):'';
       const note=[subagentNote,windowNote].filter(Boolean).join(' ');
       text(`${name}-note`,note);hidden($(`${name}-note`),!note);
       const usageRow=$(`${name}-usage`);
@@ -1480,7 +1481,7 @@ module.exports = function installAgPulseInlineWidget() {
     pending=true;lastFetch=Date.now();
     refreshRequest=(async()=>{
       const composerModel=currentComposerModel();
-      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force,...(quotaRefresh?{quotaRefresh:true}:{}),...(composerModel?{composerModel}:{}),...(syncUsage?{usageSync:true}:{})});if(!current())return;if(force||quotaRefresh)lastQuotaHoverAt=Date.now();node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(result.transient&&data&&(hydrated||data.speed||data.groups?.length)){data={...data,connection:'stale',error:null};render();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;if(result.usage?.scope&&data?.usage?.scope===usageScope.scope&&result.usage.scope!==usageScope.scope)result.usage=data.usage;data=result;hydrated=true;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
+      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force,...(quotaRefresh?{quotaRefresh:true}:{}),...(composerModel?{composerModel}:{}),...(syncUsage?{usageSync:true}:{})});if(!current())return;if(force||quotaRefresh)lastQuotaHoverAt=Date.now();node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(result.transient&&data&&(hydrated||data.speed||data.groups?.length)){data={...data,connection:'stale',error:null};render();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;if(result.usage?.scope&&data?.usage?.scope===usageScope.scope&&result.usage.scope!==usageScope.scope)result.usage=data.usage;data=result;if(!result.transient)hydrated=true;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
       catch{if(current()&&data){data={...data,connection:'stale',error:null};render();}}
       finally{if(epoch===requestEpoch){pending=false;refreshRequest=null;}}
     })();

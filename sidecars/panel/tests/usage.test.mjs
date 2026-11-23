@@ -4,7 +4,9 @@ import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import {UsageLedger,DesktopUsage,usageRecords,dateKey} from '../usage.mjs';
+import {INDEX_FILENAME} from '../usage-index.mjs';
 import {MetricsStore} from '../store.mjs';
 const scope=s=>createHash('sha256').update(s).digest('hex'),account=scope('account A');
 const id='11111111-1111-1111-1111-111111111111',other='22222222-2222-2222-2222-222222222222';
@@ -205,4 +207,98 @@ test('summary avoids main-thread SQLite contention while diskSummaryPending is a
   assert.equal(workerCalls,1,'Cold bulk foreground poll must offload to disk worker instead of blocking main thread');
   assert.equal(offloaded.summaryStale,true);
   assert.equal(bulkLedger.jsonSummaryPending.size,0);
+});
+
+test('account-scoped quota window query uses indexed IN subquery without nested co-routine scan and matches dedup rules',async t=>{
+  const ledger=await fixture(t);
+  const now=Date.parse('2026-10-11T10:00:00Z');
+  const reset5h=new Date(now+2*3600*1000).toISOString();
+  const groups=[{id:'gemini',name:'Gemini',windows:{'5h':{available:true,remaining:0.8,resetAt:reset5h}}}];
+  const otherAcct=scope('account B');
+  // Cross-conversation duplicate request in same account: higher total (1500) must win over lower (1100).
+  await ledger.ingest(account,id,raw({start:new Date(now-60*60*1000).toISOString(),model:'Gemini 4 Neon (High)',usage:{responseId:'dup-win',inputTokens:'100',cacheReadTokens:'900',cacheWriteTokens:'0',outputTokens:'100'}}));
+  await ledger.ingest(account,other,raw({start:new Date(now-60*60*1000).toISOString(),model:'Gemini 4 Neon (High)',usage:{responseId:'dup-win',inputTokens:'200',cacheReadTokens:'1100',cacheWriteTokens:'0',outputTokens:'200'}}));
+  // Unique in-window request in target account.
+  await ledger.ingest(account,other,raw({start:new Date(now-30*60*1000).toISOString(),model:'Gemini 4 Neon (High)',usage:{responseId:'solo-win',inputTokens:'50',cacheReadTokens:'400',cacheWriteTokens:'0',outputTokens:'50'}}));
+  // Out-of-window request (>5h ago) must be excluded.
+  await ledger.ingest(account,id,raw({start:new Date(now-6*3600*1000).toISOString(),model:'Gemini 4 Neon (High)',usage:{responseId:'old-win',inputTokens:'500',cacheReadTokens:'500',cacheWriteTokens:'0',outputTokens:'500'}}));
+  // Other-account-only request in window must be excluded from target quotaAccount.
+  await ledger.ingest(otherAcct,id,raw({start:new Date(now-20*60*1000).toISOString(),model:'Gemini 4 Neon (High)',usage:{responseId:'other-acct',inputTokens:'300',cacheReadTokens:'300',cacheWriteTokens:'0',outputTokens:'300'}}));
+
+  const acctSummary=await ledger.summary(account,now,{groups,quotaAccount:account});
+  const allSummary=await ledger.summary('all',now,{groups,quotaAccount:account});
+  assert.equal(acctSummary.quotaWindows['gemini:5h']?.observedTokens,2000);
+  assert.equal(acctSummary.quotaWindows['gemini:5h']?.requests,2);
+  assert.equal(allSummary.quotaWindows['gemini:5h']?.observedTokens,2000);
+  assert.equal(allSummary.quotaWindows['gemini:5h']?.requests,2);
+
+  const db=new DatabaseSync(join(ledger.directory,INDEX_FILENAME),{readOnly:true});
+  try{
+    const idx=db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_source_rows_acct_at'").get();
+    assert.equal(idx?.name,'idx_source_rows_acct_at');
+    const plan=db.prepare(`
+      EXPLAIN QUERY PLAN
+      WITH winners AS (
+        SELECT s.request_id, s.at, s.model, s.total,
+               ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
+        FROM source_rows s
+        WHERE s.account = ?
+          AND s.request_id IN (
+            SELECT DISTINCT request_id
+            FROM source_rows
+            WHERE account = ? AND at IS NOT NULL AND at >= ? AND at <= ?
+          )
+      )
+      SELECT at, model, total
+      FROM winners
+      WHERE rn = 1 AND at IS NOT NULL AND at >= ? AND at <= ?
+    `).all(account,account,now-5*3600*1000,now+2*3600*1000,now-5*3600*1000,now+2*3600*1000);
+    const details=plan.map(r=>r.detail).join('\n');
+    assert.ok(details.includes('LIST SUBQUERY'),`Expected LIST SUBQUERY in query plan:\n${details}`);
+    assert.ok(details.includes('idx_source_rows_acct_at'),`Expected idx_source_rows_acct_at in query plan:\n${details}`);
+    assert.ok(details.includes('idx_source_rows_acct_req'),`Expected idx_source_rows_acct_req in query plan:\n${details}`);
+    assert.equal(details.includes('SCAN source_rows'),false,`Account quota query must not full-scan source_rows:\n${details}`);
+    assert.equal(details.includes('USE TEMP B-TREE FOR ORDER BY'),false,`Window function should stream directly from idx_source_rows_acct_req:\n${details}`);
+  }finally{
+    db.close();
+  }
+});
+
+test('foreground summary with >16 JSON files offloads to disk worker even when SQLite index already exists and syncs dirty updates',async t=>{
+  const ledger=await fixture(t);
+  const now=Date.parse('2026-10-11T10:00:00Z');
+  const reset5h=new Date(now+2*3600*1000).toISOString();
+  const groups=[{id:'gemini',name:'Gemini',windows:{'5h':{available:true,remaining:0.8,resetAt:reset5h}}}];
+  for(let i=1;i<=18;i++){
+    const cid=`${String(i).padStart(8,'0')}-2222-4222-8222-222222222222`;
+    await ledger.ingest(account,cid,raw({start:new Date(now-60000).toISOString(),model:'Gemini 4 Neon (High)',usage:{responseId:`warm-bulk-${i}`,inputTokens:'10',cacheReadTokens:'20',cacheWriteTokens:'0',outputTokens:'5'}}));
+  }
+  // Build the SQLite index first so .usage-index-v1.sqlite exists on disk.
+  const built=await ledger.summary(account,now,{groups,quotaAccount:account});
+  assert.equal(built.totalTokens,18*35);
+  assert.equal(built.quotaWindows['gemini:5h']?.observedTokens,18*35);
+
+  // Cold restart with existing SQLite index must still offload foreground polls to worker.
+  ledger.caches.clear();
+  let workerCalls=0;
+  const origStart=ledger.startDiskSummary.bind(ledger);
+  ledger.startDiskSummary=(...args)=>{workerCalls++;return origStart(...args);};
+  const fresh=await ledger.summary(account,now,{maxWaitMs:5000,groups,quotaAccount:account});
+  assert.equal(workerCalls,1,'Existing SQLite index with >16 files must still offload foreground poll to worker');
+  assert.equal(fresh.summaryStale,undefined,'Fast worker completion within maxWaitMs should return fresh summary immediately');
+  assert.equal(fresh.totalTokens,18*35);
+  assert.equal(fresh.quotaWindows['gemini:5h']?.observedTokens,18*35);
+  assert.equal(ledger.jsonSummaryPending.size,0);
+
+  // Dirty updates must also be forwarded to the worker and cleared after completion.
+  const cid1='00000001-2222-4222-8222-222222222222';
+  await ledger.ingest(account,cid1,raw({start:new Date(now-30000).toISOString(),model:'Gemini 4 Neon (High)',usage:{responseId:'warm-bulk-extra',inputTokens:'100',cacheReadTokens:'0',cacheWriteTokens:'0',outputTokens:'0'}}));
+  assert.ok(ledger._dirtySources.size>0);
+  ledger.caches.clear();
+  const updated=await ledger.summary(account,now,{maxWaitMs:5000,groups,quotaAccount:account});
+  assert.equal(workerCalls,2);
+  assert.equal(updated.summaryStale,undefined);
+  assert.equal(updated.totalTokens,18*35+100);
+  assert.equal(updated.quotaWindows['gemini:5h']?.observedTokens,18*35+100);
+  assert.equal(ledger._dirtySources.size,0);
 });
