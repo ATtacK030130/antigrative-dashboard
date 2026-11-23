@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/hero-zh.png?v=0.9.1" width="100%" alt="Antigrative Dashboard v0.9.1：像素猫速度、缓存和上下文控件，就在输入框旁。">
+<img src="docs/assets/hero-zh.png?v=0.9.15" width="100%" alt="Antigrative Dashboard v0.9.15 在 Antigravity Desktop 2.34.0 实机效果：速率、缓存和上下文控件常驻模型选择旁。">
 
 # Antigrative Dashboard
 
@@ -20,25 +20,27 @@
 
 ## 看看效果
 
-<img src="docs/assets/responsive-zh.png?v=0.9.1" width="100%" alt="最新版主对话窄窗口三图标布局，以及子代理输入框旁的独立统计。">
-
 <table>
 <tr><th width="50%">生成速度与缓存</th><th width="50%">上下文与共享额度</th></tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/assets/speed-zh.png?v=0.9.1" width="100%" alt="最新版生成速度详情卡"><br><img src="docs/assets/widget-zh.png?v=0.9.1" width="100%" alt="最新版 Token 用量与缓存详情卡"></td>
-<td width="50%" valign="top"><img src="docs/assets/context-zh.png?v=0.9.1" width="100%" alt="最新版上下文、消耗预测、5h 和周额度详情，以及持久化语言切换入口"></td>
+<td width="50%" valign="top"><img src="docs/assets/speed-zh.png?v=0.9.15" width="100%" alt="v0.9.15 实机生成速度详情卡"><br><img src="docs/assets/widget-zh.png?v=0.9.15" width="100%" alt="v0.9.15 实机 Token 用量与缓存详情卡"></td>
+<td width="50%" valign="top"><img src="docs/assets/context-zh.png?v=0.9.15" width="100%" alt="v0.9.15 实机上下文、消耗预测、5h 和周额度详情，以及持久化语言切换入口"></td>
 </tr>
 </table>
 
 <table>
-<tr><th width="50%">每日 / 每周活动</th><th width="50%">按模型统计用量</th></tr>
+<tr><th width="50%">活动概览（贡献图与总览金额）</th><th width="50%">冰山图与模型 × 时间打孔卡</th></tr>
 <tr>
-<td width="50%"><img src="docs/assets/usage-overview-zh.png?v=0.9.1" width="100%" alt="最新版 Token 用量活动概览，支持每日和每周贡献图及本机全部/当前账号切换"></td>
-<td width="50%"><img src="docs/assets/usage-details-zh.png?v=0.9.1" width="100%" alt="最新版模型用量柱状图，支持天周月切换和主题配色"></td>
+<td width="50%"><img src="docs/assets/usage-overview-zh.png?v=0.9.15" width="100%" alt="v0.9.15 实机 Token 用量活动概览，含每日/每周贡献图、累计金额与预测周额度"></td>
+<td width="50%"><img src="docs/assets/usage-details-zh.png?v=0.9.15" width="100%" alt="v0.9.15 实机单色冰山图（新增 vs 缓存读取）与模型 × 时间打孔卡"></td>
+</tr>
+<tr><th colspan="2">按模型明细 · 缓存率与换算金额</th></tr>
+<tr>
+<td colspan="2"><img src="docs/assets/usage-table-zh.png?v=0.9.15" width="100%" alt="v0.9.15 实机按模型用量明细表，含 K/M/B/T 紧凑单位、缓存率进度条与官网 API 标价换算金额"></td>
 </tr>
 </table>
 
-<sub>使用当前控件源码和示意宿主布局渲染，数值为示例。主对话与子代理统计分别展示，账号额度共享；44% 上下文读取最近请求开始时的估计值，不是累计输入。实际插件的数据来自本机 Antigravity 接口，中英文选择会保存。</sub>
+<sub>以上均为 Antigravity Desktop 2.34.0 + v0.9.15 实机运行截图（桌面 App 控件，非 IDE 截图）；中英文选择会自动保存。</sub>
 
 **不用打开一个监控面板，继续你的对话。**
 

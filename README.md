@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/hero.png?v=0.9.1" width="100%" alt="Antigrative Dashboard v0.9.1: pixel-cat speed, cache and context controls beside the input.">
+<img src="docs/assets/hero.png?v=0.9.15" width="100%" alt="Antigrative Dashboard v0.9.15 live in Antigravity Desktop 2.34.0: speed, cache and context controls beside the model selector.">
 
 # Antigrative Dashboard
 
@@ -20,25 +20,27 @@ Keep the summary visible. Hover for the details.
 
 ## Preview
 
-<img src="docs/assets/responsive.png?v=0.9.1" width="100%" alt="Current three-icon layout in a narrow main chat and separate statistics beside a subagent input.">
-
 <table>
 <tr><th width="50%">Speed and cache</th><th width="50%">Context and shared quotas</th></tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/assets/speed.png?v=0.9.1" width="100%" alt="Current generation speed detail card"><br><img src="docs/assets/widget.png?v=0.9.1" width="100%" alt="Current token usage and cache detail card"></td>
-<td width="50%" valign="top"><img src="docs/assets/context.png?v=0.9.1" width="100%" alt="Current context, five-hour and weekly quota details, with pace forecast and language control"></td>
+<td width="50%" valign="top"><img src="docs/assets/speed.png?v=0.9.15" width="100%" alt="Live generation speed detail card (v0.9.15)"><br><img src="docs/assets/widget.png?v=0.9.15" width="100%" alt="Live token usage and cache detail card (v0.9.15)"></td>
+<td width="50%" valign="top"><img src="docs/assets/context.png?v=0.9.15" width="100%" alt="Live context, five-hour and weekly quota details, with pace forecast and language control (v0.9.15)"></td>
 </tr>
 </table>
 
 <table>
-<tr><th width="50%">Daily and weekly activity</th><th width="50%">Usage by model</th></tr>
+<tr><th width="50%">Daily and weekly activity</th><th width="50%">Iceberg chart &amp; punch card</th></tr>
 <tr>
-<td width="50%"><img src="docs/assets/usage-overview.png?v=0.9.1" width="100%" alt="Current Token usage activity with daily and weekly contribution grids"></td>
-<td width="50%"><img src="docs/assets/usage-details.png?v=0.9.1" width="100%" alt="Current model usage chart with day, week and month controls and theme-adapted colors"></td>
+<td width="50%"><img src="docs/assets/usage-overview.png?v=0.9.15" width="100%" alt="Live Token usage activity with daily/weekly contribution heatmap, total cost and weekly estimate (v0.9.15)"></td>
+<td width="50%"><img src="docs/assets/usage-details.png?v=0.9.15" width="100%" alt="Live monochrome iceberg chart (new tokens vs cache reads) and model × time punch card (v0.9.15)"></td>
+</tr>
+<tr><th colspan="2">Model breakdown · cache hit rate &amp; estimated cost</th></tr>
+<tr>
+<td colspan="2"><img src="docs/assets/usage-table.png?v=0.9.15" width="100%" alt="Live model breakdown table with K/M/B/T compact units, cache hit bars and estimated USD cost (v0.9.15)"></td>
 </tr>
 </table>
 
-<sub>Desktop widget screenshots with illustrative host layouts and data; these are not IDE screenshots. Main and subagent samples use separate statistics; quotas are account-wide. The 44% context sample uses the latest request-start estimate, not cumulative input. Language choices are at the bottom of context details.</sub>
+<sub>Real live screenshots captured from Antigravity Desktop 2.34.0 running v0.9.15 (desktop App widget, not IDE screenshots). Language choices are at the bottom of context details.</sub>
 
 **Keep working. The numbers are already there.**
 
