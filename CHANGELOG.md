@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.16 — 2026-11-23
+
+- Fix standalone Antigravity IDE VSIX packaging omitting `compat/host-theme.mjs` (`ide/package.py`, `tools/publish-release.py`), which caused the IDE background collector (`ide/main.mjs`) to exit immediately on startup with `ERR_MODULE_NOT_FOUND` (#19).
+- Add automated VSIX packaging completeness checks (`tests/test_ide.py`): verify every relative `import` / `require` / `new URL(..., import.meta.url)` target inside the built `.vsix` exists and run a real Node ESM import-resolution smoke check on the extracted `extension/ide/main.mjs` entrypoint so missing modules cannot slip into future releases.
+
 ## 0.9.15 — 2026-11-23
 
 - Redesign the usage details view as a monochrome instrument (`compat/usage-ui.cjs`): an iceberg chart splits every time bucket into new tokens (uncached input + cache write + output) above the waterline and cache reads below on one shared scale, and a model × time punch card (circle area = tokens) replaces per-model colour stacking. All marks use the host ink colour; the host accent only marks the hovered day, cell or model.

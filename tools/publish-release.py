@@ -67,7 +67,7 @@ def checked_assets(root, tag):
             archive.getinfo(name)
         for name in IDE_RUNTIME_MODULES:
             archive.getinfo('extension/' + name)
-        for name in ['compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/quota-estimator.mjs', 'sidecars/panel/usage.mjs']:
+        for name in ['compat/host-theme.mjs', 'compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/quota-estimator.mjs', 'sidecars/panel/usage.mjs']:
             archive.getinfo('extension/' + name)
         for name in LARGE_CONVERSATION_MODULES:
             archive.getinfo('extension/' + name)
