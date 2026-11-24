@@ -130,7 +130,7 @@ function renderQuota(window, prefix, now = Date.now() + serverOffset) {
       const prev = lastQuotaWindowUsage.get(winKey);
       if (prev && prev.resetMinute !== null && Math.abs(prev.resetMinute - resetMinute) <= 2) {
         const usedFrac = typeof remaining === 'number' ? Math.max(0, Math.min(1, 1 - remaining)) : null;
-        const estFull = prev.usage.observedTokens > 0 && usedFrac !== null && usedFrac >= 0.05 ? Math.round(prev.usage.observedTokens / usedFrac) : null;
+        const estFull = prev.usage.estimatedFullTokens ?? (prev.usage.observedTokens > 0 && usedFrac !== null && usedFrac >= 0.05 ? Math.round(prev.usage.observedTokens / usedFrac) : null);
         winUsage = { ...prev.usage, estimatedFullTokens: estFull };
       }
     } else if (winKey && snapshot?.usage && snapshot.usage.summaryStale !== true) {
@@ -394,6 +394,7 @@ function render() {
   $('health-note').classList.toggle('warning', snapshot.connection !== 'live' || !!snapshot.sessionError || collectionLimited);
   const integration = snapshot.integration;
   const integrationKey = !integration || ['mounted','disabled'].includes(integration.state) ? ''
+    : integration.reason === 'remote-hub' ? 'panelRemoteHub'
     : integration.reason === 'debug-port-disabled' ? (integration.launchConfigured ? 'panelDebugPortReady' : 'panelDebugPortManual') : 'panelInlineReconnecting';
   $('integration-note').textContent = integrationKey ? t(integrationKey) : '';
   updateCountdowns();

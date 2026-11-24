@@ -6,8 +6,11 @@ import {createReadStream} from 'node:fs';
 import {lstat,mkdir,readdir,unlink} from 'node:fs/promises';
 import {join} from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {createRequire} from 'node:module';
 import {setImmediate as yieldToEventLoop} from 'node:timers/promises';
 import {TrajectoryJson} from './trajectory-json.mjs';
+
+const pricing=createRequire(import.meta.url)('../../compat/pricing.cjs')();
 
 export const INDEX_FILENAME='.usage-index-v1.sqlite';
 const SCHEMA_VERSION='2';
@@ -281,6 +284,357 @@ export async function indexExists(directory){
   try{return (await lstat(join(directory,INDEX_FILENAME))).isFile();}catch{return false;}
 }
 
+async function syncActiveFilesIntoDb(db,{activeMap,allBuckets,accountsFilter=null,resolveDay,readRecord=null,dirtyFiles=null,onCheck=null,yieldEveryMs=0}){
+  const deleteRowsBySource=db.prepare('DELETE FROM source_rows WHERE source_id=?');
+  const deleteFileBySource=db.prepare('DELETE FROM source_files WHERE source_id=?');
+  const insertFile=db.prepare(
+    'INSERT INTO source_files(account,filename,size,mtime_ns,ctime_ns,ino,unreadable,row_count,is_sqlite) VALUES(?,?,?,?,?,?,?,?,?)'
+  );
+  const updateFile=db.prepare(
+    'UPDATE source_files SET size=?,mtime_ns=?,ctime_ns=?,ino=?,unreadable=?,row_count=?,is_sqlite=? WHERE source_id=?'
+  );
+  const renameFile=db.prepare(
+    'UPDATE source_files SET filename=?,size=?,mtime_ns=?,ctime_ns=?,ino=?,unreadable=0,row_count=?,is_sqlite=? WHERE source_id=?'
+  );
+  const upsertRow=db.prepare(
+    'INSERT INTO source_rows(source_id,account,request_id,at,day,model,uncached,cache_read,cache_write,output,total,partial) ' +
+    'VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ' +
+    'ON CONFLICT(source_id,request_id) DO UPDATE SET ' +
+    'at=excluded.at,day=excluded.day,model=excluded.model,uncached=excluded.uncached,cache_read=excluded.cache_read,' +
+    'cache_write=excluded.cache_write,output=excluded.output,total=excluded.total,partial=excluded.partial ' +
+    'WHERE excluded.total>source_rows.total'
+  );
+
+  // Sweep any leftover staging rows from a previously terminated worker.
+  db.exec('BEGIN IMMEDIATE');
+  try{
+    db.exec("DELETE FROM source_rows WHERE source_id IN (SELECT source_id FROM source_files WHERE filename LIKE '.staging:%');");
+    db.exec("DELETE FROM source_files WHERE filename LIKE '.staging:%';");
+    db.exec('COMMIT');
+  }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+
+  // Load tracked source files for the scanned scope.
+  let existingRows;
+  if(allBuckets){
+    existingRows=db.prepare('SELECT source_id,account,filename,size,mtime_ns,ctime_ns,ino,unreadable,row_count,is_sqlite FROM source_files').all();
+  }else if(Array.isArray(accountsFilter)&&accountsFilter.length>1){
+    const ph=accountsFilter.map(()=>'?').join(',');
+    existingRows=db.prepare(`SELECT source_id,account,filename,size,mtime_ns,ctime_ns,ino,unreadable,row_count,is_sqlite FROM source_files WHERE account IN (${ph})`).all(...accountsFilter);
+  }else if(Array.isArray(accountsFilter)&&accountsFilter.length===1){
+    existingRows=db.prepare('SELECT source_id,account,filename,size,mtime_ns,ctime_ns,ino,unreadable,row_count,is_sqlite FROM source_files WHERE account=?').all(accountsFilter[0]);
+  }else{
+    existingRows=[];
+  }
+
+  const existingMap=new Map();
+  const removedIds=[];
+  const touchedAccounts=new Set();
+  for(const row of existingRows){
+    const key=`${row.account}/${row.filename}`;
+    if(!activeMap.has(key)){
+      removedIds.push(row.source_id);
+      touchedAccounts.add(row.account);
+    }else{
+      existingMap.set(key,row);
+    }
+  }
+
+  if(removedIds.length){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      for(const sid of removedIds){
+        deleteRowsBySource.run(sid);
+        deleteFileBySource.run(sid);
+      }
+      db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+  }
+
+  // For a cold bulk build (>16 files on an empty index), defer secondary index creation
+  // until after sequential inserts to avoid random SHA-256 B-tree page thrashing.
+  const bulkBuild=existingRows.length===0&&activeMap.size>16&&db.prepare('SELECT 1 FROM source_files LIMIT 1').get()===undefined;
+  if(bulkBuild){
+    dropRowIndexes(db);
+  }
+
+  const markUnreadable=(existing,item,statSig)=>{
+    touchedAccounts.add(item.account);
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      if(existing){
+        deleteRowsBySource.run(existing.source_id);
+        updateFile.run(statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,1,0,item.isSqlite,existing.source_id);
+      }else{
+        insertFile.run(item.account,item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,1,0,item.isSqlite);
+      }
+      db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+  };
+
+  const insertRowRecord=(sourceId,account,row)=>{
+    const total=rowTotal(row);
+    const day=row.at===null?null:resolveDay(row.at);
+    upsertRow.run(
+      sourceId,account,row.id,row.at,day,row.model,
+      row.uncached??0,row.cacheRead??0,row.cacheWrite??0,row.output??0,
+      total,row.partial?1:0
+    );
+  };
+
+  let lastYield=Date.now();
+  try{
+  for(const [key,item] of activeMap){
+    onCheck?.();
+    if(yieldEveryMs>0&&Date.now()-lastYield>=yieldEveryMs){
+      await yieldToEventLoop();
+      onCheck?.();
+      lastYield=Date.now();
+    }
+
+    // Capture pre-read lstat so concurrent modifications during read always invalidate on next summary.
+    let info;
+    try{
+      info=await lstat(item.fullPath,{bigint:true});
+    }catch(e){
+      if(e.code==='ENOENT'){
+        const existing=existingMap.get(key);
+        if(existing){
+          touchedAccounts.add(item.account);
+          db.exec('BEGIN IMMEDIATE');
+          try{deleteRowsBySource.run(existing.source_id);deleteFileBySource.run(existing.source_id);db.exec('COMMIT');}
+          catch(err){try{db.exec('ROLLBACK');}catch{}throw err;}
+        }
+        continue;
+      }
+      markUnreadable(existingMap.get(key),item,{size:'-1',mtimeNs:'0',ctimeNs:'0',ino:'0'});
+      continue;
+    }
+
+    const statSig={
+      size:String(info.size),
+      mtimeNs:String(info.mtimeNs),
+      ctimeNs:String(info.ctimeNs),
+      ino:String(info.ino),
+    };
+    const existing=existingMap.get(key);
+    const forcedDirty=Boolean(dirtyFiles?.has(key));
+    if(
+      !forcedDirty&&existing&&
+      existing.size===statSig.size&&
+      existing.mtime_ns===statSig.mtimeNs&&
+      existing.ctime_ns===statSig.ctimeNs&&
+      existing.ino===statSig.ino
+    ){
+      continue;
+    }
+
+    if(info.isSymbolicLink()||!info.isFile()||info.size>BigInt(MAX_SOURCE_BYTES)){
+      markUnreadable(existing,item,statSig);
+      continue;
+    }
+
+    touchedAccounts.add(item.account);
+    try{
+      if(!item.isSqlite&&info.size<=BigInt(DIRECT_JSON_MAX_BYTES)&&typeof readRecord==='function'){
+        // Small JSON path: uses readRecord (preserving ledger.readSummaryRecord hooks), no open SQLite txn across await.
+        const text=await readRecord(item.fullPath);
+        onCheck?.();
+        const record=JSON.parse(text);
+        if(record?.schema!==1||record.account!==item.account||!Array.isArray(record.records)||!record.records.every(validRow)){
+          throw Error('Invalid usage ledger');
+        }
+        db.exec('BEGIN IMMEDIATE');
+        try{
+          let sourceId;
+          if(existing){
+            sourceId=existing.source_id;
+            deleteRowsBySource.run(sourceId);
+          }else{
+            sourceId=Number(insertFile.run(item.account,item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,0,0).lastInsertRowid);
+          }
+          for(const row of record.records)insertRowRecord(sourceId,item.account,row);
+          updateFile.run(statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,record.records.length,0,sourceId);
+          db.exec('COMMIT');
+        }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+      }else if(!item.isSqlite){
+        // Large JSON path: stream in 16 KiB chunks with bounded 512-row staging flushes; never parses whole file into V8.
+        const stagingName=`.staging:${randomUUID()}`;
+        let stagingId=null;
+        db.exec('BEGIN IMMEDIATE');
+        try{
+          stagingId=Number(insertFile.run(item.account,stagingName,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,1,0,0).lastInsertRowid);
+          db.exec('COMMIT');
+        }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+
+        let batch=[];
+        let count=0;
+        const flushBatch=()=>{
+          if(!batch.length)return;
+          db.exec('BEGIN IMMEDIATE');
+          try{
+            for(const row of batch)insertRowRecord(stagingId,item.account,row);
+            db.exec('COMMIT');
+          }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+          batch=[];
+        };
+        try{
+          const fields=Object.fromEntries(['id','at','model',...KEYS,'partial','timeBasis'].map(k=>[k,'scalar']));
+          const parser=new TrajectoryJson({
+            projection:{schema:'scalar',account:'scalar',records:{'*':fields}},
+            recordKeys:['records'],
+            onRecord:(kind,i,row)=>{
+              onCheck?.();
+              if(!validRow(row))throw Error('Invalid usage record');
+              count++;
+              batch.push(row);
+              if(batch.length>=STREAM_BATCH_SIZE)flushBatch();
+            },
+          });
+          for await(const chunk of createReadStream(item.fullPath,{encoding:'utf8',highWaterMark:16384})){
+            onCheck?.();
+            parser.write(chunk);
+          }
+          const value=parser.end();
+          if(value.schema!==1||value.account!==item.account||!Array.isArray(value.records)){
+            throw Error('Invalid usage account');
+          }
+          flushBatch();
+          // Atomically swap staging source_id into live filename.
+          db.exec('BEGIN IMMEDIATE');
+          try{
+            if(existing){
+              deleteRowsBySource.run(existing.source_id);
+              deleteFileBySource.run(existing.source_id);
+            }
+            renameFile.run(item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,count,0,stagingId);
+            db.exec('COMMIT');
+          }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+        }catch(e){
+          db.exec('BEGIN IMMEDIATE');
+          try{
+            deleteRowsBySource.run(stagingId);
+            deleteFileBySource.run(stagingId);
+            db.exec('COMMIT');
+          }catch{try{db.exec('ROLLBACK');}catch{}}
+          throw e;
+        }
+      }else{
+        // SQLite conversation ledger: stream synchronously via cursor directly into indexDb.
+        const srcDb=new DatabaseSync(item.fullPath,{readOnly:true});
+        try{
+          if(srcDb.prepare('SELECT account FROM meta').get()?.account!==item.account){
+            throw Error('Invalid usage account');
+          }
+          db.exec('BEGIN IMMEDIATE');
+          try{
+            let sourceId;
+            if(existing){
+              sourceId=existing.source_id;
+              deleteRowsBySource.run(sourceId);
+            }else{
+              sourceId=Number(insertFile.run(item.account,item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,0,1).lastInsertRowid);
+            }
+            let count=0;
+            for(const r of srcDb.prepare('SELECT j FROM records ORDER BY rowid').iterate()){
+              onCheck?.();
+              const value=JSON.parse(r.j);
+              if(!validRow(value))throw Error('Invalid usage record');
+              insertRowRecord(sourceId,item.account,value);
+              count++;
+            }
+            updateFile.run(statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,count,1,sourceId);
+            db.exec('COMMIT');
+          }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+        }finally{
+          srcDb.close();
+        }
+      }
+    }catch(error){
+      if(isCancelError(error))throw error;
+      markUnreadable(existing,item,statSig);
+    }
+  }
+  }finally{
+    if(bulkBuild)await createRowIndexesCooperative(db,{yieldEveryMs,onCheck});
+  }
+
+  if(touchedAccounts.size){
+    const delCache=db.prepare('DELETE FROM scope_summary_cache WHERE scope=?');
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      delCache.run('all');
+      for(const acct of touchedAccounts)delCache.run(acct);
+      db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+  }
+}
+
+export async function findForeignRequestIds({
+  directory,
+  scope,
+  localScope='',
+  requestIds=[],
+  timeZone='Asia/Shanghai',
+  readRecord=null,
+  dirtyFiles=null,
+  onCheck=null,
+  yieldEveryMs=0,
+  busyTimeoutMs=250,
+}={}){
+  const foreign=new Set();
+  if(!directory||!scope||scope===localScope||!Array.isArray(requestIds)||!requestIds.length)return foreign;
+  const uniqueIds=[...new Set(requestIds.filter(id=>HASH.test(id)))];
+  if(!uniqueIds.length)return foreign;
+  onCheck?.();
+  const buckets=await discoverBuckets(directory,'all',null);
+  onCheck?.();
+  const otherBuckets=buckets.filter(b=>b.dir!==scope&&b.dir!==localScope&&activeFilesForBucket(b.files).length>0);
+  if(!otherBuckets.length)return foreign;
+
+  const activeMap=new Map();
+  const otherAccounts=[];
+  for(const entry of otherBuckets){
+    otherAccounts.push(entry.dir);
+    for(const filename of activeFilesForBucket(entry.files)){
+      activeMap.set(`${entry.dir}/${filename}`,{
+        account:entry.dir,
+        filename,
+        fullPath:join(directory,entry.dir,filename),
+        isSqlite:filename.endsWith('.sqlite')?1:0,
+      });
+    }
+  }
+
+  const db=await openIndexDb(directory,timeZone,{busyTimeoutMs});
+  try{
+    await syncActiveFilesIntoDb(db,{
+      activeMap,
+      allBuckets:false,
+      accountsFilter:otherAccounts,
+      resolveDay:createDateKeyResolver(timeZone),
+      readRecord,
+      dirtyFiles,
+      onCheck,
+      yieldEveryMs,
+    });
+    const CHUNK=400;
+    for(let i=0;i<uniqueIds.length;i+=CHUNK){
+      onCheck?.();
+      const slice=uniqueIds.slice(i,i+CHUNK);
+      const ph=slice.map(()=>'?').join(',');
+      const stmt=db.prepare(
+        `SELECT DISTINCT request_id FROM source_rows WHERE account != ? AND account != ? AND request_id IN (${ph})`
+      );
+      for(const row of stmt.all(scope,localScope,...slice)){
+        foreign.add(row.request_id);
+      }
+    }
+  }finally{
+    db.close();
+  }
+  return foreign;
+}
+
 export async function syncAndSummarizeIndex({
   directory,
   scope,
@@ -311,9 +665,7 @@ export async function syncAndSummarizeIndex({
 
   // Build active source file list across scanned buckets.
   const activeMap=new Map(); // `${account}/${filename}` -> { account, filename, fullPath, isSqlite }
-  const scannedAccounts=new Set();
   for(const entry of bucketEntries){
-    scannedAccounts.add(entry.dir);
     for(const filename of activeFilesForBucket(entry.files)){
       activeMap.set(`${entry.dir}/${filename}`,{
         account:entry.dir,
@@ -331,280 +683,16 @@ export async function syncAndSummarizeIndex({
 
   const db=await openIndexDb(directory,timeZone,{busyTimeoutMs});
   try{
-    const deleteRowsBySource=db.prepare('DELETE FROM source_rows WHERE source_id=?');
-    const deleteFileBySource=db.prepare('DELETE FROM source_files WHERE source_id=?');
-    const insertFile=db.prepare(
-      'INSERT INTO source_files(account,filename,size,mtime_ns,ctime_ns,ino,unreadable,row_count,is_sqlite) VALUES(?,?,?,?,?,?,?,?,?)'
-    );
-    const updateFile=db.prepare(
-      'UPDATE source_files SET size=?,mtime_ns=?,ctime_ns=?,ino=?,unreadable=?,row_count=?,is_sqlite=? WHERE source_id=?'
-    );
-    const renameFile=db.prepare(
-      'UPDATE source_files SET filename=?,size=?,mtime_ns=?,ctime_ns=?,ino=?,unreadable=0,row_count=?,is_sqlite=? WHERE source_id=?'
-    );
-    const upsertRow=db.prepare(
-      'INSERT INTO source_rows(source_id,account,request_id,at,day,model,uncached,cache_read,cache_write,output,total,partial) ' +
-      'VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ' +
-      'ON CONFLICT(source_id,request_id) DO UPDATE SET ' +
-      'at=excluded.at,day=excluded.day,model=excluded.model,uncached=excluded.uncached,cache_read=excluded.cache_read,' +
-      'cache_write=excluded.cache_write,output=excluded.output,total=excluded.total,partial=excluded.partial ' +
-      'WHERE excluded.total>source_rows.total'
-    );
-
-    // Sweep any leftover staging rows from a previously terminated worker.
-    db.exec('BEGIN IMMEDIATE');
-    try{
-      db.exec("DELETE FROM source_rows WHERE source_id IN (SELECT source_id FROM source_files WHERE filename LIKE '.staging:%');");
-      db.exec("DELETE FROM source_files WHERE filename LIKE '.staging:%';");
-      db.exec('COMMIT');
-    }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-
-    // Load tracked source files for the scanned scope.
-    const existingRows=allBuckets
-      ? db.prepare('SELECT source_id,account,filename,size,mtime_ns,ctime_ns,ino,unreadable,row_count,is_sqlite FROM source_files').all()
-      : db.prepare('SELECT source_id,account,filename,size,mtime_ns,ctime_ns,ino,unreadable,row_count,is_sqlite FROM source_files WHERE account=?').all(scope);
-
-    const existingMap=new Map();
-    const removedIds=[];
-    const touchedAccounts=new Set();
-    for(const row of existingRows){
-      const key=`${row.account}/${row.filename}`;
-      if(!activeMap.has(key)){
-        removedIds.push(row.source_id);
-        touchedAccounts.add(row.account);
-      }else{
-        existingMap.set(key,row);
-      }
-    }
-
-    if(removedIds.length){
-      db.exec('BEGIN IMMEDIATE');
-      try{
-        for(const sid of removedIds){
-          deleteRowsBySource.run(sid);
-          deleteFileBySource.run(sid);
-        }
-        db.exec('COMMIT');
-      }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-    }
-
-    // For a cold bulk build (>16 files on an empty index), defer secondary index creation
-    // until after sequential inserts to avoid random SHA-256 B-tree page thrashing.
-    const bulkBuild=existingRows.length===0&&activeMap.size>16;
-    if(bulkBuild){
-      dropRowIndexes(db);
-    }
-
-    const markUnreadable=(existing,item,statSig)=>{
-      touchedAccounts.add(item.account);
-      db.exec('BEGIN IMMEDIATE');
-      try{
-        if(existing){
-          deleteRowsBySource.run(existing.source_id);
-          updateFile.run(statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,1,0,item.isSqlite,existing.source_id);
-        }else{
-          insertFile.run(item.account,item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,1,0,item.isSqlite);
-        }
-        db.exec('COMMIT');
-      }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-    };
-
-    const insertRowRecord=(sourceId,account,row)=>{
-      const total=rowTotal(row);
-      const day=row.at===null?null:resolveDay(row.at);
-      upsertRow.run(
-        sourceId,account,row.id,row.at,day,row.model,
-        row.uncached??0,row.cacheRead??0,row.cacheWrite??0,row.output??0,
-        total,row.partial?1:0
-      );
-    };
-
-    let lastYield=Date.now();
-    try{
-    for(const [key,item] of activeMap){
-      onCheck?.();
-      if(yieldEveryMs>0&&Date.now()-lastYield>=yieldEveryMs){
-        await yieldToEventLoop();
-        onCheck?.();
-        lastYield=Date.now();
-      }
-
-      // Capture pre-read lstat so concurrent modifications during read always invalidate on next summary.
-      let info;
-      try{
-        info=await lstat(item.fullPath,{bigint:true});
-      }catch(e){
-        if(e.code==='ENOENT'){
-          const existing=existingMap.get(key);
-          if(existing){
-            touchedAccounts.add(item.account);
-            db.exec('BEGIN IMMEDIATE');
-            try{deleteRowsBySource.run(existing.source_id);deleteFileBySource.run(existing.source_id);db.exec('COMMIT');}
-            catch(err){try{db.exec('ROLLBACK');}catch{}throw err;}
-          }
-          continue;
-        }
-        markUnreadable(existingMap.get(key),item,{size:'-1',mtimeNs:'0',ctimeNs:'0',ino:'0'});
-        continue;
-      }
-
-      const statSig={
-        size:String(info.size),
-        mtimeNs:String(info.mtimeNs),
-        ctimeNs:String(info.ctimeNs),
-        ino:String(info.ino),
-      };
-      const existing=existingMap.get(key);
-      const forcedDirty=Boolean(dirtyFiles?.has(key));
-      if(
-        !forcedDirty&&existing&&
-        existing.size===statSig.size&&
-        existing.mtime_ns===statSig.mtimeNs&&
-        existing.ctime_ns===statSig.ctimeNs&&
-        existing.ino===statSig.ino
-      ){
-        continue;
-      }
-
-      if(info.isSymbolicLink()||!info.isFile()||info.size>BigInt(MAX_SOURCE_BYTES)){
-        markUnreadable(existing,item,statSig);
-        continue;
-      }
-
-      touchedAccounts.add(item.account);
-      try{
-        if(!item.isSqlite&&info.size<=BigInt(DIRECT_JSON_MAX_BYTES)&&typeof readRecord==='function'){
-          // Small JSON path: uses readRecord (preserving ledger.readSummaryRecord hooks), no open SQLite txn across await.
-          const text=await readRecord(item.fullPath);
-          onCheck?.();
-          const record=JSON.parse(text);
-          if(record?.schema!==1||record.account!==item.account||!Array.isArray(record.records)||!record.records.every(validRow)){
-            throw Error('Invalid usage ledger');
-          }
-          db.exec('BEGIN IMMEDIATE');
-          try{
-            let sourceId;
-            if(existing){
-              sourceId=existing.source_id;
-              deleteRowsBySource.run(sourceId);
-            }else{
-              sourceId=Number(insertFile.run(item.account,item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,0,0).lastInsertRowid);
-            }
-            for(const row of record.records)insertRowRecord(sourceId,item.account,row);
-            updateFile.run(statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,record.records.length,0,sourceId);
-            db.exec('COMMIT');
-          }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-        }else if(!item.isSqlite){
-          // Large JSON path: stream in 16 KiB chunks with bounded 512-row staging flushes; never parses whole file into V8.
-          const stagingName=`.staging:${randomUUID()}`;
-          let stagingId=null;
-          db.exec('BEGIN IMMEDIATE');
-          try{
-            stagingId=Number(insertFile.run(item.account,stagingName,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,1,0,0).lastInsertRowid);
-            db.exec('COMMIT');
-          }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-
-          let batch=[];
-          let count=0;
-          const flushBatch=()=>{
-            if(!batch.length)return;
-            db.exec('BEGIN IMMEDIATE');
-            try{
-              for(const row of batch)insertRowRecord(stagingId,item.account,row);
-              db.exec('COMMIT');
-            }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-            batch=[];
-          };
-          try{
-            const fields=Object.fromEntries(['id','at','model',...KEYS,'partial','timeBasis'].map(k=>[k,'scalar']));
-            const parser=new TrajectoryJson({
-              projection:{schema:'scalar',account:'scalar',records:{'*':fields}},
-              recordKeys:['records'],
-              onRecord:(kind,i,row)=>{
-                onCheck?.();
-                if(!validRow(row))throw Error('Invalid usage record');
-                count++;
-                batch.push(row);
-                if(batch.length>=STREAM_BATCH_SIZE)flushBatch();
-              },
-            });
-            for await(const chunk of createReadStream(item.fullPath,{encoding:'utf8',highWaterMark:16384})){
-              onCheck?.();
-              parser.write(chunk);
-            }
-            const value=parser.end();
-            if(value.schema!==1||value.account!==item.account||!Array.isArray(value.records)){
-              throw Error('Invalid usage account');
-            }
-            flushBatch();
-            // Atomically swap staging source_id into live filename.
-            db.exec('BEGIN IMMEDIATE');
-            try{
-              if(existing){
-                deleteRowsBySource.run(existing.source_id);
-                deleteFileBySource.run(existing.source_id);
-              }
-              renameFile.run(item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,count,0,stagingId);
-              db.exec('COMMIT');
-            }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-          }catch(e){
-            db.exec('BEGIN IMMEDIATE');
-            try{
-              deleteRowsBySource.run(stagingId);
-              deleteFileBySource.run(stagingId);
-              db.exec('COMMIT');
-            }catch{try{db.exec('ROLLBACK');}catch{}}
-            throw e;
-          }
-        }else{
-          // SQLite conversation ledger: stream synchronously via cursor directly into indexDb.
-          const srcDb=new DatabaseSync(item.fullPath,{readOnly:true});
-          try{
-            if(srcDb.prepare('SELECT account FROM meta').get()?.account!==item.account){
-              throw Error('Invalid usage account');
-            }
-            db.exec('BEGIN IMMEDIATE');
-            try{
-              let sourceId;
-              if(existing){
-                sourceId=existing.source_id;
-                deleteRowsBySource.run(sourceId);
-              }else{
-                sourceId=Number(insertFile.run(item.account,item.filename,statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,0,1).lastInsertRowid);
-              }
-              let count=0;
-              for(const r of srcDb.prepare('SELECT j FROM records ORDER BY rowid').iterate()){
-                onCheck?.();
-                const value=JSON.parse(r.j);
-                if(!validRow(value))throw Error('Invalid usage record');
-                insertRowRecord(sourceId,item.account,value);
-                count++;
-              }
-              updateFile.run(statSig.size,statSig.mtimeNs,statSig.ctimeNs,statSig.ino,0,count,1,sourceId);
-              db.exec('COMMIT');
-            }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-          }finally{
-            srcDb.close();
-          }
-        }
-      }catch(error){
-        if(isCancelError(error))throw error;
-        markUnreadable(existing,item,statSig);
-      }
-    }
-    }finally{
-      if(bulkBuild)await createRowIndexesCooperative(db,{yieldEveryMs,onCheck});
-    }
-
-    if(touchedAccounts.size){
-      const delCache=db.prepare('DELETE FROM scope_summary_cache WHERE scope=?');
-      db.exec('BEGIN IMMEDIATE');
-      try{
-        delCache.run('all');
-        for(const acct of touchedAccounts)delCache.run(acct);
-        db.exec('COMMIT');
-      }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-    }
+    await syncActiveFilesIntoDb(db,{
+      activeMap,
+      allBuckets,
+      accountsFilter:allBuckets?null:[scope],
+      resolveDay,
+      readRecord,
+      dirtyFiles,
+      onCheck,
+      yieldEveryMs,
+    });
 
     onCheck?.();
     if(yieldEveryMs>0){
@@ -736,10 +824,11 @@ export async function syncAndSummarizeIndex({
           if(s.endAt>maxEnd)maxEnd=s.endAt;
         }
         if(Number.isFinite(minStart)&&Number.isFinite(maxEnd)){
+          const modelAliases=pricing.buildShortAliases(models);
           const winStmt=allBuckets
             ? db.prepare(`
                 WITH winners AS (
-                  SELECT s.request_id, s.at, s.model, s.total,
+                  SELECT s.request_id, s.at, s.day, s.model, s.uncached, s.cache_read, s.cache_write, s.output, s.total,
                          ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
                   FROM source_rows s
                   WHERE s.request_id IN (
@@ -752,14 +841,14 @@ export async function syncAndSummarizeIndex({
                       )
                   )
                 )
-                SELECT at, model, total
+                SELECT at, day, model, uncached, cache_read, cache_write, output, total
                 FROM winners
                 WHERE rn = 1 AND at IS NOT NULL AND at >= ? AND at <= ?
               `)
             : (scope===quotaAccount
               ? db.prepare(`
                   WITH winners AS (
-                    SELECT s.request_id, s.at, s.model, s.total,
+                    SELECT s.request_id, s.at, s.day, s.model, s.uncached, s.cache_read, s.cache_write, s.output, s.total,
                            ROW_NUMBER() OVER (PARTITION BY s.request_id ORDER BY s.total DESC, s.source_id ASC) AS rn
                     FROM source_rows s
                     WHERE s.account = ?
@@ -769,7 +858,7 @@ export async function syncAndSummarizeIndex({
                         WHERE account = ? AND at IS NOT NULL AND at >= ? AND at <= ?
                       )
                   )
-                  SELECT at, model, total
+                  SELECT at, day, model, uncached, cache_read, cache_write, output, total
                   FROM winners
                   WHERE rn = 1 AND at IS NOT NULL AND at >= ? AND at <= ?
                 `)
@@ -782,10 +871,16 @@ export async function syncAndSummarizeIndex({
             for(const r of winIter){
               onCheck?.();
               const gid=classifyQuotaGroupId(groupInfos,r.model);
+              const day=r.day||resolveDay(r.at)||'';
+              const cost=pricing.requestCostUsd(r,day,modelAliases);
               for(const spec of specs){
                 if(spec.groupId===gid&&r.at>=spec.startAt&&r.at<=spec.endAt){
-                  const item=quotaWindowCounts[spec.id]||{observedTokens:0,requests:0};
+                  const item=quotaWindowCounts[spec.id]||{observedTokens:0,observedCostUsd:0,pricedTokens:0,requests:0};
                   item.observedTokens+=r.total;
+                  if(cost!==null){
+                    item.observedCostUsd+=cost;
+                    item.pricedTokens+=r.total;
+                  }
                   item.requests++;
                   quotaWindowCounts[spec.id]=item;
                 }

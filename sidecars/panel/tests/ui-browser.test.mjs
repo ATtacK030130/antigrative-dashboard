@@ -96,8 +96,8 @@ test('font sync, scope switching and quota window reference render end-to-end in
   let child = null, cdp = null, server = null;
   try {
 
-  const [i18nSrc, themeSrc, usageSrc, updateSrc, widgetSrc, surfaceSrc, stylesCss, formatMjs] = await Promise.all([
-    read('compat/i18n.cjs'), read('compat/theme.cjs'), read('compat/usage-ui.cjs'),
+  const [i18nSrc, themeSrc, pricingSrc, usageSrc, updateSrc, widgetSrc, surfaceSrc, stylesCss, formatMjs] = await Promise.all([
+    read('compat/i18n.cjs'), read('compat/theme.cjs'), read('compat/pricing.cjs'), read('compat/usage-ui.cjs'),
     read('compat/update-ui.cjs'), read('compat/inline-widget.cjs'), read('ide/surface.cjs'),
     read('sidecars/panel/styles.css'), read('sidecars/panel/format.mjs'),
   ]);
@@ -218,6 +218,7 @@ test('font sync, scope switching and quota window reference render end-to-end in
     window.__agPulseTestSurface = (${extract(surfaceSrc)})();
     window.__agPulseI18nFactory = (${extract(i18nSrc)});
     window.__agPulseThemeFactory = (${extract(themeSrc)});
+    window.__agPulsePricingFactory = (${extract(pricingSrc)});
     window.__agPulseUsageFactory = (${extract(usageSrc)});
     window.__agPulseUpdateFactory = (${extract(updateSrc)});
     (${extract(widgetSrc)})();
@@ -887,6 +888,10 @@ test('font sync, scope switching and quota window reference render end-to-end in
   integrationState = { state: 'reconnecting' };
   await evalJs(`() => document.getElementById('refresh-button').click()`);
   await waitUntil(`() => document.getElementById('integration-note').textContent.includes('內嵌狀態列正在自動重新連線')`, 'zh-TW generic reconnecting note');
+
+  integrationState = { state: 'unavailable', reason: 'remote-hub' };
+  await evalJs(`() => document.getElementById('refresh-button').click()`);
+  await waitUntil(`() => document.getElementById('integration-note').textContent.includes('遠端 SSH/WSL 環境')`, 'zh-TW remote-hub note');
 
   integrationState = { state: 'mounted' };
   await evalJs(`() => document.getElementById('refresh-button').click()`);

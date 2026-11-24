@@ -274,6 +274,49 @@ test('RuntimeUi surfaces debug-port-disabled diagnosis on ENOENT and clears it u
   await ui.stop();
 });
 
+test('RuntimeUi gracefully degrades to unavailable with backoff in remote SSH/WSL hubs and recovers cleanly', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-pulse-remote-hub-'));
+  try {
+    let failDiscovery = true;
+    const ui = new RuntimeUi({
+      dataDir: dir,
+      interval: 50,
+      snapshot: async () => ({ connection: 'live', groups: [], speed: null }),
+      source: 'safe-widget',
+      discover: async () => {
+        if (failDiscovery) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+        return [];
+      },
+      diagnoseError: async error => error.code === 'ENOENT'
+        ? { state: 'unavailable', reason: 'remote-hub', message: 'Remote SSH/WSL hub' }
+        : null,
+    });
+
+    await ui.tick();
+    assert.equal(ui.health.state, 'unavailable');
+    assert.equal(ui.health.reason, 'remote-hub');
+    assert.ok(ui.nextTickAt > Date.now() + 30000, 'unavailable state should back off polling');
+    const savedFirst = JSON.parse(await readFile(join(dir, 'integration-state.json'), 'utf8'));
+    assert.equal(savedFirst.state, 'unavailable');
+    assert.equal(savedFirst.reason, 'remote-hub');
+
+    // Repeated unchanged unavailable ticks do not rewrite integration-state.json needlessly.
+    await ui.tick();
+    const savedSecond = JSON.parse(await readFile(join(dir, 'integration-state.json'), 'utf8'));
+    assert.equal(savedSecond.checkedAt, savedFirst.checkedAt);
+
+    // If targets appear later, backoff and remote-hub reason clear immediately.
+    failDiscovery = false;
+    await ui.tick();
+    assert.equal(ui.health.state, 'waiting');
+    assert.equal(ui.nextTickAt, 0);
+    assert.equal('reason' in ui.health, false);
+    await ui.stop();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('ensureDesktopLaunchConfig discovers and repairs Windows shortcuts on redirected Desktop and OneDrive Desktop', async () => {
   const root = await mkdtemp(join(tmpdir(), 'ag-pulse-win-redirect-'));
   try {

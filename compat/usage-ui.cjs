@@ -1,5 +1,6 @@
 // Shared local usage views. Values and model labels are inserted as text.
-module.exports = function createUsageDashboard({root,language,setMarkup,hostLabel='Antigravity',guideDismissed=false,onDismissGuide,onLanguage,onRefresh,onScope}) {
+module.exports = function createUsageDashboard({root,language,setMarkup,pricing=window.__agPulsePricingFactory?.(),hostLabel='Antigravity',guideDismissed=false,onDismissGuide,onLanguage,onRefresh,onScope}) {
+  if(!pricing)throw new Error('Pricing helper is required for usage dashboard');
   const dialog=document.createElement('dialog');dialog.id='usage-dashboard';dialog.setAttribute('popover','manual');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',language.language==='zh-TW'?'用量統計':language.language==='zh-CN'?'用量统计':'Token usage');
   dialog.style.cssText='width:min(1040px,calc(100vw - 40px));max-width:none;height:min(840px,calc(100dvh - 40px));max-height:none;box-sizing:border-box;overflow:hidden;visibility:visible;pointer-events:auto;padding:0;border:1px solid var(--pulse-border);border-radius:14px;background:var(--pulse-background);color:var(--pulse-foreground);box-shadow:0 16px 60px var(--pulse-shadow);';
   const shell=document.createElement('div'),view=shell.attachShadow({mode:'open'});shell.style.height='100%';dialog.append(shell);root.append(dialog);
@@ -88,125 +89,11 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   const add=(date,days)=>{const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);};
   const week=date=>{const d=new Date(date+'T00:00:00Z');return add(date,-((d.getUTCDay()+6)%7));};
   const month=(date,shift)=>{const d=new Date(date.slice(0,7)+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+shift);return d.toISOString().slice(0,10);};
-  const tierMap={minimal:'Minimal',low:'Low',medium:'Medium',med:'Medium',high:'High',xhigh:'XHigh','extra high':'XHigh',max:'Max',thinking:'Thinking',tiered:'Tiered',orchestrator:'Orchestrator'};
-  const tierParen=/\s*\((extra[\s-]+high|xhigh|high|medium|med|low|minimal|thinking|max|tiered|orchestrator)\)\s*$/i;
-  const tierSuffix=/[\s-]+(extra[\s-]+high|xhigh|high|medium|med|low|minimal|thinking|max|tiered|orchestrator)$/i;
-  const orchParen=/^orchestrator\s*\((.+)\)$/i;
-  const orchPrefix=/^orchestrator[\s-]+(.+)$/i;
-  // Known published Gemini 4 codenames seed bare Orchestrator aliases even if only the
-  // Orchestrator entry appears in a slice. Any new codename (e.g. Gemini 4 Krypton or
-  // Gemini 5 Helix) is discovered dynamically in syncModels() from observed full names.
-  const geminiSeedAliases=new Map([['argon','Gemini 4 Argon'],['argon trial','Gemini 4 Argon Trial'],['carbon','Gemini 4 Carbon'],['hydrogen','Gemini 4 Hydrogen'],['neon','Gemini 4 Neon']]);
-  const geminiCodename=/^gemini[\s-]+(\d+(?:\.\d+)?)[\s-]+(.+)$/i;
-  const geminiGenericTier=/^(?:pro|flash|ultra|nano|lite|mini|exp|experimental|preview|thinking|live)(?:[\s-].*)?$/i;
-  function formatModelBase(base){
-    let name=base.trim().replace(/\s+/g,' ');
-    if(!name)return 'Unknown';
-    if(!/[A-Z\s]/.test(name)&&name.includes('-')){
-      name=name.replace(/(^|-)(\d+)-(\d)(?=$|-)/g,'$1$2.$3').replace(/-/g,' ');
-      name=name.split(' ').map(tok=>tok==='gpt'?'GPT':/^o\d/.test(tok)?tok:/^[a-z]/.test(tok)?tok[0].toUpperCase()+tok.slice(1):tok).join(' ');
-    }else if(!/[A-Z\s]/.test(name)&&!/^o\d/.test(name)&&/^[a-z]/.test(name)){
-      name=name[0].toUpperCase()+name.slice(1);
-    }else{
-      name=name.replace(/(^|[\s-])(\d+)-(\d)(?=$|[\s-])/g,'$1$2.$3');
-    }
-    return name;
-  }
-  const parsedCache=new Map();
-  let shortAliases=new Map(),ambiguousShorts=new Set();
-  for(const [sk,fn]of geminiSeedAliases)shortAliases.set(sk,{key:fn.toLowerCase(),name:fn.replace(/^Gemini\s+\d+(?:\.\d+)?\s+/i,''),fullName:fn});
-  function parseModelBase(raw){
-    const input=String(raw||'').trim();
-    const hit=parsedCache.get(input);if(hit)return hit;
-    let base=input.replace(/-n$/i,'').trim();
-    const tiers=[];
-    for(let i=0;i<3;i++){
-      let m=base.match(tierParen)||base.match(tierSuffix);
-      if(m){
-        const rest=base.slice(0,m.index).trim();
-        if(!rest)break;
-        tiers.unshift(tierMap[m[1].toLowerCase().replace(/[\s-]+/g,' ')]||m[1]);
-        base=rest;continue;
-      }
-      m=base.match(orchParen)||base.match(orchPrefix);
-      if(m){
-        const inner=m[1].trim();
-        if(!inner)break;
-        tiers.unshift('Orchestrator');
-        base=inner;continue;
-      }
-      break;
-    }
-    const fullName=formatModelBase(base);
-    let shortName=fullName,shortKey=null,hasPrefix=false;
-    const gm=fullName.match(geminiCodename);
-    if(gm&&/^[a-z]/i.test(gm[2])&&!geminiGenericTier.test(gm[2])){
-      shortName=gm[2];shortKey=shortName.toLowerCase();hasPrefix=true;
-    }
-    const key=fullName.toLowerCase(),tier=tiers.join(' · ');
-    const parsed={key,name:shortName,fullName,shortKey,hasPrefix,tier,hasDisplay:/[A-Z\s]/.test(base)};
-    parsedCache.set(input,parsed);return parsed;
-  }
-  function parseModelTier(raw){
-    const p=parseModelBase(raw);
-    if(!p.hasPrefix){
-      const alias=shortAliases.get(p.key);
-      if(alias)return {...p,key:alias.key,name:alias.name,fullName:alias.fullName};
-    }else if(p.shortKey&&ambiguousShorts.has(p.shortKey)){
-      return {...p,name:p.fullName};
-    }
-    return p;
-  }
-  // Official global API pricing policy in USD per 1M tokens:
-  // base / long: [uncachedInput, cacheRead, cacheWrite, output].
-  // All 3 vendors bill thinking/reasoning tokens at the model's output rate with no
-  // per-effort surcharge; longAt marks official prompt-length step-ups (>100K/200K/272K).
-  function modelPrice(key,date=''){
-    const k=String(key||'').toLowerCase(),d=String(date||'');
-    const afterDec26=d>='2026-12-01',afterJan27=d>='2027-01-01';
-    if(/^gemini 4 neon\b/.test(k))return {base:[3,0.15,0,15],note:'flat1m'};
-    if(/^gemini 4 hydrogen\b/.test(k))return {base:[1.5,0.075,0,7.5],note:'flat1m'};
-    if(/^gemini 4 (carbon|argon)\b/.test(k))return afterDec26?{base:[4,0.2,0,20],note:'flat1m'}:{base:[2,0.1,0,10],note:'intro'};
-    if(/^gemini 3\.[678] flash\b/.test(k))return afterJan27?{base:[1.5,0.15,0,7.5]}:{base:[0.75,0.075,0,3.75],note:'intro'};
-    if(/^gemini 3\.5 flash[\s-]lite\b/.test(k))return {base:[0.3,0.03,0,2.5]};
-    if(/^gemini 3\.1 flash[\s-]lite\b/.test(k))return {base:[0.25,0.025,0,1.5]};
-    if(/^gemini 2\.5 flash[\s-]lite\b/.test(k))return {base:[0.1,0.01,0,0.4]};
-    if(/^gemini 2\.5 flash\b/.test(k))return {base:[0.3,0.03,0,2.5]};
-    if(/^gemini 2\.0 flash\b/.test(k))return {base:[0.1,0.025,0,0.4]};
-    if(/^gemini (?:3(?:\.\d+)? )?flash\b/.test(k))return {base:[0.5,0.05,0,3]};
-    if(/^gemini 2\.5 pro\b/.test(k))return {base:[1.25,0.125,0,10],longAt:200000,long:[2.5,0.25,0,15]};
-    if(/^gemini (?:3(?:\.\d+)? )?pro\b/.test(k))return {base:[2,0.2,0,12],longAt:200000,long:[4,0.4,0,18]};
-    if(/^claude (?:opus 5\.5|5\.5 opus)\b/.test(k))return {base:[4,0.2,5,20],note:'flat1m'};
-    if(/^claude (?:sonnet 5\.5|5\.5 sonnet)\b/.test(k))return {base:[2,0.1,2.5,10],note:'flat1m'};
-    if(/^claude (?:haiku 5\.5|5\.5 haiku)\b/.test(k))return {base:[0.1,0.01,0.125,0.5],longAt:100000,long:[0.5,0.05,0.625,2.5]};
-    if(/^claude (?:opus 4\.6|4\.6 opus)\b/.test(k))return {base:[5,0.5,6.25,25],note:'flat1m'};
-    if(/^claude (?:opus 4\.5|4\.5 opus)\b/.test(k))return {base:[5,0.5,6.25,25]};
-    if(/^claude (?:opus (?:3|4(?:\.1)?)|(?:3|4(?:\.1)?) opus)\b/.test(k))return {base:[15,1.5,18.75,75]};
-    if(/^claude opus\b/.test(k))return {base:[5,0.5,6.25,25]};
-    if(/^claude (?:sonnet 4\.6|4\.6 sonnet)\b/.test(k))return {base:[3,0.3,3.75,15],note:'flat1m'};
-    if(/^claude (?:sonnet|[\d.]+ sonnet)\b/.test(k))return {base:[3,0.3,3.75,15]};
-    if(/^claude (?:haiku 3\.5|3\.5 haiku)\b/.test(k))return {base:[0.8,0.08,1,4]};
-    if(/^claude (?:haiku|[\d.]+ haiku)\b/.test(k))return {base:[1,0.1,1.25,5]};
-    if(/^gpt 5\.4 nano\b/.test(k))return {base:[0.2,0.02,0.2,1.25]};
-    if(/^gpt 5\.4 mini\b/.test(k))return {base:[0.75,0.075,0.75,4.5]};
-    if(/^gpt 5\.4\b/.test(k))return {base:[2.5,0.25,2.5,15],longAt:272000,long:[5,0.5,5,22.5]};
-    if(/^gpt 5 mini\b/.test(k))return {base:[0.25,0.025,0.25,2]};
-    if(/^gpt 5\b/.test(k))return {base:[1.25,0.125,1.25,10]};
-    if(/^gpt-oss 120b\b/.test(k))return {base:[0.15,0.075,0.15,0.6]};
-    if(/^gpt 4\.1\b/.test(k))return {base:[2,0.5,2,8]};
-    if(/^gpt 4o\b/.test(k))return {base:[2.5,1.25,2.5,10]};
-    if(/^o3 pro\b/.test(k))return {base:[20,5,20,80]};
-    if(/^o3\b/.test(k))return {base:[2,0.5,2,8]};
-    if(/^o4 mini\b/.test(k))return {base:[1.1,0.275,1.1,4.4]};
-    return null;
-  }
-  function tokenCost(r,p){
-    if(!p)return null;
-    const inp=(r.uncached||0)+(r.cacheRead||0)+(r.cacheWrite||0);
-    const avgIn=p.longAt&&r.requests>0?inp/r.requests:0;
-    const rate=p.long&&avgIn>p.longAt?p.long:p.base;
-    return ((r.uncached||0)*rate[0]+(r.cacheRead||0)*rate[1]+(r.cacheWrite||0)*rate[2]+(r.output||0)*rate[3])/1e6;
-  }
+  let modelAliases=pricing.buildShortAliases([]);
+  const parseModelTier=raw=>pricing.parseModelTier(raw,modelAliases);
+  const modelPrice=pricing.modelPrice;
+  const tokenCost=pricing.tokenCost;
+  const quotaFamily=pricing.quotaFamily;
   const usd=v=>{if(v===null||v===undefined||!Number.isFinite(v))return '—';if(v===0)return '$0.00';if(v<0.01)return '$'+v.toFixed(3);return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
   // Table cells keep a bounded width as usage grows: below 1,000 the exact value is shown; from 1,000 upward the value
   // keeps 3 significant digits and steps through K/M/B/T (1.84M, 41.4M, 736M), so every cell stays within 5 characters
@@ -216,13 +103,6 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   const shortNum=n=>{n=Number(n||0);if(!Number.isFinite(n))return '—';const sign=n<0?'-':'';n=Math.abs(n);return sign+(Math.round(n)<1e3?full(Math.round(n)):sig3(n));};
   const shortUsd=v=>{if(v===null||v===undefined||!Number.isFinite(v))return '—';return Math.round(Math.abs(v)*100)<1e5?usd(v):(v<0?'-$':'$')+sig3(Math.abs(v));};
   const compactUsd=v=>{if(v===null||v===undefined||!Number.isFinite(v))return '—';if(v===0)return '$0.00';if(v<0.01)return '$'+v.toFixed(3);if(v<1000)return '$'+v.toFixed(2);if(v<10000)return '$'+Math.round(v).toLocaleString('en-US');return '$'+(v/1000).toFixed(1)+'K';};
-  function quotaFamily(raw){
-    const s=String(raw||'');
-    if(/(?:^|[^a-z])argon(?:$|[^a-z])/i.test(s))return 'gemini-argon';
-    if(/gemini|hydrogen|carbon|neon|orchestrator/i.test(s))return 'gemini';
-    if(/claude|sonnet|opus|haiku|anthropic|gpt|openai/i.test(s)||/(?:^|[^a-z0-9])o[134](?:$|[^a-z0-9])/i.test(s)||/^3p(?:$|[-_])/i.test(s))return '3p';
-    return null;
-  }
   const familyLabel=f=>f==='gemini-argon'?'Argon':f==='3p'?'Claude / GPT':'Gemini';
   function computeOverviewFinance(){
     const today=value?.today||'',weekFrom=today?week(today):'',monthFrom=today?month(today,0):'',recentFrom=today?add(today,-6):'';
@@ -258,13 +138,15 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     const pools=[];let weeklyTotal=0,waitingSamples=false;
     for(const [k,win]of weeklyEntries){
       const gid=k.slice(0,-7),fam=normFam(gid);
-      const fullTok=Number.isFinite(win?.estimatedFullTokens)&&win.estimatedFullTokens>0?win.estimatedFullTokens:null;
-      if(!fullTok){if(win?.observedTokens>0||win?.usedFraction>0)waitingSamples=true;continue;}
+      const fullUsdDirect=Number.isFinite(win?.estimatedFullUsd)&&win.estimatedFullUsd>0?win.estimatedFullUsd:null;
+      const fullTokDirect=Number.isFinite(win?.estimatedFullTokens)&&win.estimatedFullTokens>0?win.estimatedFullTokens:null;
+      if(!fullUsdDirect&&!fullTokDirect){if(win?.observedTokens>0||win?.usedFraction>0)waitingSamples=true;continue;}
       const rate=rateFor(fam);
-      if(rate===null)continue;
-      const estUsd=fullTok*rate;
+      const estUsd=fullUsdDirect??(rate!==null&&fullTokDirect?fullTokDirect*rate:null);
+      if(estUsd===null)continue;
+      const fullTok=fullUsdDirect!==null&&rate>0?Math.round(fullUsdDirect/rate):fullTokDirect;
       weeklyTotal+=estUsd;
-      pools.push({label:familyLabel(fam),usd:estUsd,fullTokens:fullTok,usedFraction:typeof win.usedFraction==='number'?win.usedFraction:null});
+      pools.push({label:familyLabel(fam),usd:estUsd,fullTokens:fullTok,usedFraction:typeof win.usedFraction==='number'?win.usedFraction:null,costBased:fullUsdDirect!==null});
     }
     const zeroAll=!allPriced&&Number(value?.totalTokens||0)===0;
     return {
@@ -289,21 +171,7 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     const allRaw=[];
     for(const raw of value?.models||[])allRaw.push(raw);
     for(const day of value?.days||[])for(const raw of Object.keys(day.models||{}))allRaw.push(raw);
-    const observed=new Map();
-    for(const raw of allRaw){
-      const p=parseModelBase(raw);
-      if(!p.hasPrefix||!p.shortKey)continue;
-      const cur=observed.get(p.shortKey);
-      if(cur===undefined)observed.set(p.shortKey,{key:p.key,name:p.name,fullName:p.fullName});
-      else if(cur&&cur.key!==p.key)observed.set(p.shortKey,null);
-    }
-    shortAliases=new Map();ambiguousShorts=new Set();
-    for(const [sk,fn]of geminiSeedAliases){
-      if(!observed.has(sk))shortAliases.set(sk,{key:fn.toLowerCase(),name:fn.replace(/^Gemini\s+\d+(?:\.\d+)?\s+/i,''),fullName:fn});
-    }
-    for(const [sk,info]of observed){
-      if(info)shortAliases.set(sk,info);else ambiguousShorts.add(sk);
-    }
+    modelAliases=pricing.buildShortAliases(allRaw);
     const seen=new Map();
     for(const raw of allRaw){
       const p=parseModelTier(raw);
@@ -683,8 +551,9 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     const weeklyCard=node('div','metric metric-est'),weeklyVal=node('div','value');
     if(fin.weeklyEst){
       weeklyVal.append(node('span','approx','≈'),document.createTextNode(compactUsd(fin.weeklyEst.totalUsd)),node('span','unit','USD'));
-      const detail=fin.weeklyEst.pools.map(p=>`${p.label} ${w('约 ','≈ ','約 ')}${usd(p.usd)}`+(p.usedFraction!==null?w(`（已用 ${Math.round(p.usedFraction*100)}% · 满额约 ${compact(p.fullTokens)} Token）`,` (${Math.round(p.usedFraction*100)}% used · full ~${compact(p.fullTokens)} tokens)`,`（已用 ${Math.round(p.usedFraction*100)}% · 滿額約 ${compact(p.fullTokens)} Token）`):'')).join(' · ');
-      weeklyCard.title=w('按近 7 天模型/缓存配比与周额度进度推算：','Estimated weekly full quota from recent model/cache mix & quota progress: ','按近 7 天模型/快取配比與週額度進度推算：')+usd(fin.weeklyEst.totalUsd)+' USD · '+detail;
+      const detail=fin.weeklyEst.pools.map(p=>`${p.label} ${w('约 ','≈ ','約 ')}${usd(p.usd)}`+(p.usedFraction!==null?w(`（已用 ${Math.round(p.usedFraction*100)}%${p.fullTokens?` · 满额约 ${compact(p.fullTokens)} Token`:''}）`,` (${Math.round(p.usedFraction*100)}% used${p.fullTokens?` · full ~${compact(p.fullTokens)} tokens`:''})`,`（已用 ${Math.round(p.usedFraction*100)}%${p.fullTokens?` · 滿額約 ${compact(p.fullTokens)} Token`:''}）`):'')).join(' · ');
+      const costDirect=fin.weeklyEst.pools.some(p=>p.costBased);
+      weeklyCard.title=(costDirect?w('按等效 API 成本与周额度进度推算：','Estimated weekly full quota from equivalent API cost & quota progress: ','按等效 API 成本與週額度進度推算：'):w('按近 7 天模型/缓存配比与周额度进度推算：','Estimated weekly full quota from recent model/cache mix & quota progress: ','按近 7 天模型/快取配比與週額度進度推算：'))+usd(fin.weeklyEst.totalUsd)+' USD · '+detail;
     }else{
       weeklyVal.textContent='—';
       weeklyCard.title=fin.waitingSamples?w('本周额度样本较少，消耗达到阈值后自动推算','Not enough weekly quota usage yet; estimates appear once usage crosses threshold','本週額度樣本較少，消耗達到門檻後自動推算'):w('需登录账号并同步周额度后推算','Sign in and sync weekly quota to estimate','需登入帳號並同步週額度後推算');

@@ -4,7 +4,7 @@ import json
 import base64
 import os
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import shutil
 import subprocess
 import tempfile
@@ -215,14 +215,14 @@ class CliLifecycleTests(unittest.TestCase):
         self.assertEqual(cli.read(hooks_file), {cli.HOOK_NAME: foreign})
 
     def test_windows_shim_is_used_only_for_safe_paths(self):
-        shim = cli.windows_shim('C:\\Program Files\\nodejs\\node.exe', Path('C:\\Users\\dev\\.gemini\\antigravity-cli\\antigrative-dashboard'), 'statusline.mjs', 'zh-CN')
+        shim = cli.windows_shim('C:\\Program Files\\nodejs\\node.exe', PureWindowsPath('C:\\Users\\dev\\.gemini\\antigravity-cli\\antigrative-dashboard'), 'statusline.mjs', 'zh-CN')
         self.assertEqual(str(shim[0]), 'C:\\Users\\dev\\.gemini\\antigravity-cli\\antigrative-dashboard\\statusline.cmd')
         self.assertEqual(shim[1], '@echo off\r\n"C:\\Program Files\\nodejs\\node.exe" "%~dp0cli\\statusline.mjs" --language zh-CN\r\n')
         # Unicode user folders are fine: CMD expands %~dp0 internally.
-        self.assertIsNotNone(cli.windows_shim('C:\\node\\node.exe', Path('C:\\Users\\张三\\x'), 'hook.mjs'))
+        self.assertIsNotNone(cli.windows_shim('C:\\node\\node.exe', PureWindowsPath('C:\\Users\\张三\\x'), 'hook.mjs'))
         for root in ('C:\\Users\\my name\\x', 'C:\\Users\\a&b\\x', 'C:\\Users\\100%\\x', 'C:\\Users\\a(b)\\x'):
-            self.assertIsNone(cli.windows_shim('C:\\node\\node.exe', Path(root), 'hook.mjs'))
-        self.assertIsNone(cli.windows_shim('C:\\节点\\node.exe', Path('C:\\x'), 'hook.mjs'))
+            self.assertIsNone(cli.windows_shim('C:\\node\\node.exe', PureWindowsPath(root), 'hook.mjs'))
+        self.assertIsNone(cli.windows_shim('C:\\节点\\node.exe', PureWindowsPath('C:\\x'), 'hook.mjs'))
         command, _ = cli.launcher('/usr/bin/node', PurePosixPath('/data/data/com.termux/files/home/x'), 'hook.mjs', platform='linux')
         self.assertEqual(command, '/usr/bin/node /data/data/com.termux/files/home/x/cli/hook.mjs')
 

@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.16：** 修复独立 Antigravity IDE 的 VSIX 打包遗漏 `compat/host-theme.mjs` 导致后台采集进程启动即退出的问题（#19）并新增 VSIX 全量相对导入扫描与实机 ESM 启动校验；同时全面升级 **Antigravity CLI（`agy`）** 状态栏，新增会话 Token、全版本缓存命中率、估算速率 `≈ t/s`、本轮/上轮小结、零额度本地 `#usage` 用量详情与 `usage-cli`、Termux `android` 兼容、旧版 Windows 控制台自动 ASCII 符号回退、`.cmd` 轻量启动器与 `--doctor` 自检。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [兼容性](COMPATIBILITY.md)。
+**v0.9.16：** 修复独立 Antigravity IDE VSIX 启动失败（#19）、新增内嵌状态条一键折叠「极简模式」（#20）、通过共用 `compat/pricing.cjs` 在 USD 成本空间直接估算周期满额（#21）、新增 Antigravity 2.34.0+ daemon 发现与远程 SSH/WSL Hub 适配，并全面升级 **Antigravity CLI（`agy`）** 状态栏（会话 Token、全版本缓存率、估算 `≈ t/s`、本轮/上轮小结、零额度 `#usage` 本地报告与 `usage-cli`、Termux、自动 ASCII 符号回退、`.cmd` 启动器与 `--doctor` 自检）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 

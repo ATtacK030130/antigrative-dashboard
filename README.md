@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.9.16:** Fixes standalone Antigravity IDE VSIX packaging omitting `compat/host-theme.mjs` (#19) with automated VSIX relative-import & ESM startup checks, and upgrades the **Antigravity CLI (`agy`)** adapter with conversation totals, universal cache hit rate, estimated `≈ t/s`, turn summaries, zero-quota `#usage` local reports (`usage-cli`), Termux `android` support, automatic legacy-console ASCII fallback, fast Windows `.cmd` launchers, and `--doctor` diagnostics. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [Compatibility](COMPATIBILITY.md).
+**v0.9.16:** Fixes standalone Antigravity IDE VSIX startup (#19), adds one-click **Minimal bar** inline collapse (#20), estimates weekly quota capacity directly in USD cost space via shared `compat/pricing.cjs` (#21), adds Antigravity 2.34.0+ daemon & Remote SSH/WSL Hub discovery, and ships a major **Antigravity CLI (`agy`)** upgrade (conversation tokens, cache hit, estimated `≈ t/s`, turn summaries, zero-quota `#usage` local hook, `usage-cli`, Termux, ASCII fallback, fast `.cmd` launchers, and `--doctor`). [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 

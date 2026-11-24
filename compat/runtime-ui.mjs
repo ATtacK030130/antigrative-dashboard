@@ -165,12 +165,27 @@ export class RuntimeUi {
     this.owner=owner;this.owns=owns;
     this.binding=owner?BINDING+'_'+owner.replaceAll('-',''):BINDING;
     this.rendererTheme={};
+    this.nextTickAt=0;
+    this.lastUnavailablePersistAt=0;
   }
   async setHealth(state, message, extra = {}) {
     const allowed = {};
     for (const key of ['reason', 'hostVersion', 'launchConfigured']) if (extra && extra[key] !== undefined) allowed[key] = extra[key];
+    const unchangedUnavailable = state === 'unavailable'
+      && this.health.state === state
+      && this.health.reason === allowed.reason
+      && this.health.message === message
+      && this.sessions.size === 0
+      && this.lastUnavailablePersistAt > 0;
     this.health = { state, mode: 'runtime', message, windows: this.sessions.size, ...allowed, checkedAt: new Date().toISOString() };
-    if (this.dataDir&&await this.owns()) { try { await mkdir(this.dataDir, { recursive: true }); await writeFile(join(this.dataDir, 'integration-state.json'), JSON.stringify(this.health)); } catch { /* Read-only state reporting must not crash collection. */ } }
+    if (this.dataDir && !unchangedUnavailable && await this.owns()) {
+      try {
+        await mkdir(this.dataDir, { recursive: true });
+        await writeFile(join(this.dataDir, 'integration-state.json'), JSON.stringify(this.health));
+        if (state === 'unavailable') this.lastUnavailablePersistAt = Date.now();
+        else this.lastUnavailablePersistAt = 0;
+      } catch { /* Read-only state reporting must not crash collection. */ }
+    }
   }
   async event(connection, message) {
     if(this.stopping)return;
@@ -230,7 +245,7 @@ export class RuntimeUi {
       }
       else if (input.type === 'preferences' && this.preferences) {
         const value=input.input;
-        if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['language','languageGuideDismissed','usageGuideDismissed','speedStyle','usageScope'].includes(key)))throw new Error('Invalid preferences request');
+        if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['language','languageGuideDismissed','usageGuideDismissed','speedStyle','usageScope','stripMode'].includes(key)))throw new Error('Invalid preferences request');
         result=Object.keys(value).length?await this.preferences.set(value):await this.preferences.get();
       }
       else if (input.type === 'diagnostic' && ['boot', 'mounted', 'mount-error'].includes(input.input?.stage)) {
@@ -352,20 +367,23 @@ export class RuntimeUi {
         if(v&&v.length<=240&&!/[;{}<>\\/\n\r\0]|url\s*\(|var\s*\(|expression\s*\(|javascript:|@import/i.test(v))this.rendererTheme[k]=v;
       }
       const mounted=[...this.sessions.values()].some(c=>c.mounted);
+      this.nextTickAt=0;
       await this.setHealth(mounted ? 'mounted' : this.sessions.size ? 'waiting-for-composer' : 'waiting',
         mounted ? 'Dashboard attached to the conversation composer' : this.sessions.size ? 'Renderer connected; waiting for a conversation composer if needed' : 'Waiting for the app renderer');
     } catch (error) {
-      let message = 'Inline connection unavailable; the side panel remains available. Retrying automatically.', extra = {};
+      let state = 'reconnecting', message = 'Inline connection unavailable; the side panel remains available. Retrying automatically.', extra = {};
       if (this.diagnoseError) {
         try {
           const detail = await this.diagnoseError(error);
           if (detail && typeof detail === 'object') {
+            if (typeof detail.state === 'string' && detail.state) state = detail.state;
             if (typeof detail.message === 'string' && detail.message) message = detail.message;
             extra = detail;
           }
         } catch {}
       }
-      await this.setHealth('reconnecting', message, extra);
+      this.nextTickAt = state === 'unavailable' ? Date.now() + Math.max(this.interval, 60000) : 0;
+      await this.setHealth(state, message, extra);
     }
     finally { this.busy = false; }
   }
@@ -388,8 +406,8 @@ export class RuntimeUi {
     this.sessions.clear();this.rendererTheme={};
   }
   start() {
-    if (this.running) return; this.running = true; this.stopping = false;
-    void this.tick(); this.timer = setInterval(() => { void this.tick(); }, this.interval); this.timer.unref?.();
+    if (this.running) return; this.running = true; this.stopping = false; this.nextTickAt = 0;
+    void this.tick(); this.timer = setInterval(() => { if (this.nextTickAt && Date.now() < this.nextTickAt) return; void this.tick(); }, this.interval); this.timer.unref?.();
   }
   async stop() { this.running = false; this.stopping = true; clearInterval(this.timer); await this.detachAll(); }
 }

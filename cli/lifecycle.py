@@ -132,7 +132,7 @@ def windows_shim(node, root, script, language=None):
     node = str(node)
     if not node.isascii() or any(char in node for char in '%"\r\n\x00'):
         return None
-    target = Path(root) / (Path(script).stem + '.cmd')
+    target = (root if hasattr(root, 'joinpath') else Path(root)) / (Path(script).stem + '.cmd')
     if not SAFE_CMD_PATH.match(str(target)):
         return None
     if language and language not in LANGUAGES:

@@ -149,3 +149,101 @@ test('calibration state persists atomically across restarts and does not self-sh
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('cost-space Theil-Sen stays accurate across Hydrogen->Neon switch and avoids false shift alerts (Issue #21)', () => {
+  const est = new QuotaEstimator();
+  // Cycle 1 establishes a ~$98 USD prior using cheap Hydrogen ($0.539/M -> ~182M tok full)
+  est.estimate(ACCT, weeklySpec(0.85, 29920000), {
+    observedTokens: 27_300_000,
+    observedCostUsd: 14.70,
+    pricedTokens: 27_300_000,
+    requests: 40,
+  });
+
+  // Cycle 2: Front segment uses Hydrogen ($0.539/M -> $101.32/full); back segment switches to Neon ($0.664/M -> $93.83/full)
+  const samples = [
+    [0.95, 9_400_000, 5.07, 12],
+    [0.90, 18_800_000, 10.13, 24],
+    [0.85, 28_200_000, 15.20, 36],
+    [0.7704, 43_170_000, 23.26, 55],
+    // Switch to Neon (token slope drops ~25%, USD slope stays ~$94)
+    [0.72, 50_300_000, 27.99, 70],
+    [0.65, 60_200_000, 34.56, 90],
+    [0.5543, 73_730_000, 43.53, 120],
+  ];
+  let last;
+  for (const [rem, tok, cost, reqs] of samples) {
+    last = est.estimate(ACCT, weeklySpec(rem, 29930080), {
+      observedTokens: tok,
+      observedCostUsd: cost,
+      pricedTokens: tok,
+      requests: reqs,
+    }, { recentUsdPerToken: 0.595 / 1e6 });
+  }
+  // True full USD is ~$94-$101 (NOT ~$82.99 from token-slope * 7d-rate mismatch!)
+  assert.ok(last.estimatedFullUsd >= 92 && last.estimatedFullUsd <= 103, `expected ~$94-$101, got ${last.estimatedFullUsd}`);
+  assert.equal(last.estimatedFullTokens, Math.round(last.estimatedFullUsd / (0.595 / 1e6)));
+  assert.equal(est.accounts.get(ACCT).get('gemini:weekly').costConfirmedShift, false, 'Model switch must not confirm a quota shift in USD space');
+});
+
+test('cost-space ignores legacy midCycleReset without anchorCostUsd and falls back cleanly until post-upgrade slope is ready', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-quota-legacy-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    // Simulate a v0.9.16 calibration file mid-cycle after a bounce (has anchorTokens but no anchorCostUsd)
+    await writeFile(join(dir, 'quota-calibration-v1.json'), JSON.stringify({
+      version: 1,
+      accounts: {
+        [ACCT]: {
+          'gemini:weekly': {
+            priorFullTokens: 160_000_000,
+            priorBaseFullTokens: 160_000_000,
+            priorCycles: 1,
+            resetMinute: 29930080,
+            midCycleReset: true,
+            confirmedShift: false,
+            shiftConfirm: null,
+            anchorTokens: 43_170_000,
+            anchorUsed: 0.2296,
+            anchorReqs: 60,
+            samples: [
+              { t: 43_170_000, u: 0.2296, r: 60 },
+              { t: 55_000_000, u: 0.30, r: 80 },
+            ],
+          },
+        },
+      },
+    }));
+    const est = new QuotaEstimator(dir);
+    await est.load();
+    // First poll after upgrade: only 1 cost-tagged point -> must NOT compute inflated $43.53 / 0.216 = $201!
+    const r1 = est.estimate(ACCT, weeklySpec(0.5543, 29930080), {
+      observedTokens: 73_730_000,
+      observedCostUsd: 43.53,
+      pricedTokens: 73_730_000,
+      requests: 120,
+    });
+    assert.equal(r1.estimatedFullUsd, undefined, 'Legacy midCycleReset without anchorCostUsd must not emit inflated cost ratio');
+    assert.ok(r1.estimatedFullTokens > 100_000_000 && r1.estimatedFullTokens < 200_000_000);
+
+    // After 2 more post-upgrade monotonic cost points spanning >= 2%, Theil-Sen cost slope activates cleanly (~$95)
+    est.estimate(ACCT, weeklySpec(0.54, 29930080), { observedTokens: 75_800_000, observedCostUsd: 44.89, pricedTokens: 75_800_000, requests: 125 });
+    const r3 = est.estimate(ACCT, weeklySpec(0.525, 29930080), { observedTokens: 78_000_000, observedCostUsd: 46.32, pricedTokens: 78_000_000, requests: 132 });
+    assert.ok(r3.estimatedFullUsd >= 90 && r3.estimatedFullUsd <= 102, `expected ~$95 cost slope, got ${r3.estimatedFullUsd}`);
+    est.dispose();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('unpriced or partially priced windows fall back to token space without polluting USD prior', () => {
+  const est = new QuotaEstimator();
+  // Establish $100 USD prior in cycle 1
+  est.estimate(ACCT, weeklySpec(0.85, 29920000), { observedTokens: 150_000_000, observedCostUsd: 15.0, pricedTokens: 150_000_000, requests: 30 });
+  // Cycle 2 has 50% unpriced tokens -> must fall back to token space and keep priorFullUsd intact
+  const res = est.estimate(ACCT, weeklySpec(0.90, 29930080), { observedTokens: 100_000_000, observedCostUsd: 5.0, pricedTokens: 50_000_000, requests: 20 });
+  assert.equal(res.estimatedFullUsd, undefined);
+  assert.equal(res.observedCostUsd, undefined);
+  assert.ok(res.estimatedFullTokens > 0);
+  assert.equal(est.accounts.get(ACCT).get('gemini:weekly').priorFullUsd, 100);
+});

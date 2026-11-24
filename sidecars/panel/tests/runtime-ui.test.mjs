@@ -184,6 +184,8 @@ test('only trusted preference requests can persist supported language settings',
   await request({languageGuideDismissed:true});assert.deepEqual(writes,[{language:'en'},{languageGuideDismissed:true}]);
   await request({usageGuideDismissed:true},9);await request({usageGuideDismissed:false});assert.equal(writes.length,2);
   await request({usageGuideDismissed:true});assert.deepEqual(writes.at(-1),{usageGuideDismissed:true});
+  await request({stripMode:'minimal'});assert.deepEqual(writes.at(-1),{stripMode:'minimal'});
+  await request({stripMode:'minimal',extra:'nope'});assert.equal(writes.length,4);
   await request({});assert.ok(connection.calls.some(call=>call.params.expression?.includes('"language":"zh-CN"')));await ui.stop();
 });
 

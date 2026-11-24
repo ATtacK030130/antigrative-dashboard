@@ -302,3 +302,76 @@ test('foreground summary with >16 JSON files offloads to disk worker even when S
   assert.equal(updated.quotaWindows['gemini:5h']?.observedTokens,18*35+100);
   assert.equal(ledger._dirtySources.size,0);
 });
+
+test('quota window summary accumulates exact per-request USD cost and estimates full USD capacity',async t=>{
+  const ledger=await fixture(t);
+  const now=Date.parse('2026-11-20T12:00:00Z');
+  const weekReset=new Date(now+2*86400000).toISOString();
+  const groups=[{id:'gemini',name:'Gemini',windows:{weekly:{available:true,remaining:0.8,resetAt:weekReset}}}];
+  // Request 1: Gemini 4 Hydrogen (base: uncached $1.5/M, cacheRead $0.075/M, output $7.5/M) -> 1M uncached ($1.5) + 10M cache ($0.75) + 0.5M out ($3.75) = $6.00
+  await ledger.ingest(account,id,raw({model:'Gemini 4 Hydrogen (High)',start:'2026-11-19T10:00:00Z',usage:{responseId:'cost-h1',inputTokens:'1000000',cacheReadTokens:'10000000',cacheWriteTokens:'0',outputTokens:'500000'}}));
+  // Request 2: Gemini 4 Neon (base: uncached $3/M, cacheRead $0.15/M, output $15/M) -> 1M uncached ($3) + 10M cache ($1.5) + 0.5M out ($7.5) = $12.00
+  await ledger.ingest(account,other,raw({model:'Gemini 4 Neon (XHigh)',start:'2026-11-20T08:00:00Z',usage:{responseId:'cost-n1',inputTokens:'1000000',cacheReadTokens:'10000000',cacheWriteTokens:'0',outputTokens:'500000'}}));
+  const summary=await ledger.summary(account,now,{groups,quotaAccount:account});
+  const win=summary.quotaWindows['gemini:weekly'];
+  assert.equal(win.observedTokens,23_000_000);
+  assert.ok(Math.abs(win.observedCostUsd-18.0)<1e-4,`expected $18.00 observed cost, got ${win.observedCostUsd}`);
+  assert.ok(Math.abs(win.estimatedFullUsd-90.0)<1e-3,`expected $90.00 full USD at 20% used, got ${win.estimatedFullUsd}`);
+  assert.equal(win.estimatedFullTokens,115_000_000);
+});
+
+test('multi-account backfill and live viewing isolate request_ids already owned by another authenticated account',async t=>{
+  const ledger=await fixture(t);
+  const acctA=scope('account-A'),acctB=scope('account-B'),unauth=scope('ag-pulse:local-unauthenticated');
+  const cidB='44444444-4444-4444-4444-444444444444';
+  const cidU='55555555-5555-5555-5555-555555555555';
+  const makeMultiRaw=resps=>({
+    trajectory:{
+      cascadeId:cidB,
+      steps:resps.map(()=>({type:'CORTEX_STEP_TYPE_PLANNER_RESPONSE',metadata:{createdAt:'2026-11-20T10:00:00Z'}})),
+      generatorMetadata:resps.map((rid,i)=>({
+        stepIndices:[i],
+        chatModel:{
+          modelDisplayName:'Gemini 4 Neon (High)',
+          chatStartMetadata:{createdAt:'2026-11-20T10:00:00Z'},
+          usage:{apiProvider:'API_PROVIDER_GOOGLE_GEMINI',responseId:rid,inputTokens:'100',cacheReadTokens:'900',cacheWriteTokens:'0',outputTokens:'100'},
+        },
+      })),
+    },
+  });
+  // Account B produces cidB with requests b-1 and b-2.
+  const store={
+    identity:acctB,epoch:1,
+    listConversations:async()=>[{id:cidB,modifiedAt:'v1',status:'DONE'}],
+    client:{trajectory:async()=>makeMultiRaw(['b-1','b-2'])},
+  };
+  const tracker=new DesktopUsage(store,ledger,{host:'app',discoverLocal:async()=>({conversations:[],errors:0})});
+  t.after(()=>tracker.dispose());
+  await tracker.sync(true);
+  assert.equal((await ledger.summary(acctB)).requests,2);
+
+  // Also seed an unauthenticated LOCAL_SCOPE request u-1 in cidU.
+  await ledger.ingest(unauth,cidU,makeMultiRaw(['u-1']));
+
+  // User switches to Account A. Local disk still has cidB (from B) and cidU (from unauth).
+  store.identity=acctA;store.epoch++;
+  store.listConversations=async()=>[{id:cidB,modifiedAt:'v1',status:'DONE'},{id:cidU,modifiedAt:'v1',status:'DONE'}];
+  store.client.trajectory=async cid=>cid===cidB?makeMultiRaw(['b-1','b-2']):makeMultiRaw(['u-1']);
+  await tracker.sync(true);
+  // Account A MUST NOT steal b-1 / b-2 from Account B, but CAN claim unauthenticated u-1.
+  const snapA1=await ledger.summary(acctA);
+  assert.equal(snapA1.requests,1,'Account A should claim only unauthenticated u-1, not Account B requests');
+  assert.equal(snapA1.totalTokens,1100);
+
+  // Viewing Account B's chat via ingestLive while signed in as Account A must also skip b-1 / b-2,
+  // while a brand-new turn a-3 sent by Account A in the same chat IS attributed to Account A.
+  tracker.ingestLive(acctA,cidB,makeMultiRaw(['b-1','b-2','a-3']));
+  const deadline=Date.now()+10000;
+  while(tracker.liveStates.size>0||ledger.usageWrites.size>0){if(Date.now()>deadline)throw Error('live ingest did not settle');await new Promise(r=>setTimeout(r,10));}
+  await ledger.queue;
+  const snapA2=await ledger.summary(acctA);
+  assert.equal(snapA2.requests,2,'Account A now owns u-1 + new turn a-3, still excluding b-1/b-2');
+  assert.equal(snapA2.totalTokens,2200);
+  const snapB=await ledger.summary(acctB);
+  assert.equal(snapB.requests,2,'Account B retains its original b-1 and b-2 untouched');
+});

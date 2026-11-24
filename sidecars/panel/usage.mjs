@@ -3,14 +3,16 @@ import {Worker} from 'node:worker_threads';
 import {readFile,writeFile,mkdir,rename,readdir,unlink,open,stat,lstat} from 'node:fs/promises';
 import {join,basename} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
+import {createRequire} from 'node:module';
 import {tokenCount,requestCacheMetrics} from './metrics.mjs';
 import {platformPaths} from '../../compat/platform.mjs';
 import {discoverLocalConversations,conversationId} from './local-conversations.mjs';
 import {setImmediate as yieldToLiveRequests} from 'node:timers/promises';
 import {delegatedIds} from './delegation.mjs';
 import {collectionFailure} from './collection-state.mjs';
-import {syncAndSummarizeIndex} from './usage-index.mjs';
+import {syncAndSummarizeIndex,findForeignRequestIds} from './usage-index.mjs';
 import {QuotaEstimator} from './quota-estimator.mjs';
+const pricing=createRequire(import.meta.url)('../../compat/pricing.cjs')();
 const HASH=/^[a-f0-9]{64}$/,GUID=/^[a-f0-9-]{36}$/i;
 const hash=value=>createHash('sha256').update(value).digest('hex');
 export const LOCAL_SCOPE=hash('ag-pulse:local-unauthenticated');
@@ -52,8 +54,10 @@ function buildQuotaWindowSpecs(groups){
 function quotaWindowMeta(specs){
   return Object.fromEntries(specs.map(s=>[s.id,{resetMinute:s.resetMinute,idle:s.idle}]));
 }
-function finalizeQuotaWindows(specs,counts={},meta=null,{estimator=null,accountKey=null,allowUpdate=true}={}){
+function finalizeQuotaWindows(specs,counts={},meta=null,{estimator=null,accountKey=null,allowUpdate=true,days=null,today=''}={}){
   const out={};
+  const hasDedicatedArgon=specs.some(s=>s.window==='weekly'&&pricing.quotaFamily(s.groupId)==='gemini-argon');
+  const rateFor=Array.isArray(days)&&days.length&&today?pricing.computeFamilyRates(days,today,{hasDedicatedArgon}):null;
   for(const spec of specs){
     const prev=meta?.[spec.id];
     if(prev){
@@ -63,7 +67,12 @@ function finalizeQuotaWindows(specs,counts={},meta=null,{estimator=null,accountK
     const c=counts[spec.id];
     if(!c||!c.requests)continue;
     if(estimator){
-      out[spec.id]=estimator.estimate(accountKey,spec,c,{allowUpdate});
+      // Weekly windows convert cost-space full USD to tokens via recent 7-day family rate
+      // (matching Overview KPI tooltips); 5h windows use the window's own blended rate first.
+      const windowRate=typeof c.observedCostUsd==='number'&&c.observedCostUsd>0&&c.observedTokens>0?c.observedCostUsd/c.observedTokens:null;
+      const familyRate=rateFor?rateFor(pricing.quotaFamily(spec.groupId)):null;
+      const recentUsdPerToken=spec.window==='weekly'?(familyRate||windowRate):(windowRate||familyRate);
+      out[spec.id]=estimator.estimate(accountKey,spec,c,{allowUpdate,recentUsdPerToken});
     }else{
       const usedFraction=typeof spec.remaining==='number'?Math.max(0,Math.min(1,1-spec.remaining)):null;
       const estimatedFullTokens=c.observedTokens>0&&usedFraction!==null&&usedFraction>=0.05?Math.round(c.observedTokens/usedFraction):null;
@@ -350,6 +359,34 @@ export class UsageLedger{
     }
     return count;
   }
+  async filterForeignOwnedRows(scope,rows,{isCurrent=()=>true}={}){
+    if(!scope||scope===LOCAL_SCOPE||!Array.isArray(rows)||!rows.length)return rows||[];
+    let names=[];
+    try{names=await readdir(this.directory);}catch(e){if(e.code==='ENOENT')return rows;throw e;}
+    if(isCurrent()!==true)return [];
+    if(!names.some(n=>HASH.test(n)&&n!==scope&&n!==LOCAL_SCOPE))return rows;
+    if(this.diskSummaryPending){
+      await this.diskSummaryPending.catch(()=>{});
+      if(isCurrent()!==true)return [];
+    }
+    const dirtySnapshot=this._dirtySources.size?new Set(this._dirtySources):null;
+    const run=()=>findForeignRequestIds({
+      directory:this.directory,
+      scope,
+      localScope:LOCAL_SCOPE,
+      requestIds:rows.map(r=>r.id),
+      timeZone:this.timeZone,
+      readRecord:file=>this.readSummaryRecord(file),
+      dirtyFiles:dirtySnapshot,
+      yieldEveryMs:8,
+      busyTimeoutMs:250,
+    });
+    const next=this._indexQueue.catch(()=>{}).then(run);
+    this._indexQueue=next.catch(()=>{});
+    const foreign=await next;
+    if(isCurrent()!==true)return [];
+    return foreign.size?rows.filter(r=>!foreign.has(r.id)):rows;
+  }
   async summary(scope,now=Date.now(),{isCurrent=()=>true,groups=null,quotaAccount=null,preferCachedMaxAgeMs=0,maxWaitMs=0}={}){
     const allBuckets=scope==='all';
     if(!scope||(!allBuckets&&!HASH.test(scope)))return null;
@@ -360,7 +397,7 @@ export class UsageLedger{
     const cacheTag=scope+':'+today+'|'+(quotaAccount||'');
     const finalize=(rawValue,checkMeta=false,allowUpdate=true)=>{
       if(!specs.length)return rawValue;
-      return {...rawValue,quotaWindows:finalizeQuotaWindows(specs,rawValue._quotaWindowCounts||{},checkMeta?rawValue._quotaWindowMeta||null:null,{estimator:this.quotaEstimator,accountKey:quotaAccount,allowUpdate})};
+      return {...rawValue,quotaWindows:finalizeQuotaWindows(specs,rawValue._quotaWindowCounts||{},checkMeta?rawValue._quotaWindowMeta||null:null,{estimator:this.quotaEstimator,accountKey:quotaAccount,allowUpdate,days:rawValue.days,today:rawValue.today||today})};
     };
     const cached=this.caches.get(cacheKey);
     const fallbackCached=cached||this.findFallbackSummaryCache(cacheTag);
@@ -520,7 +557,15 @@ export class DesktopUsage{
   capMap(map){while(map.size>this.maxMapEntries)map.delete(map.keys().next().value);}
   async ingest(scope,id,raw){
     const epoch=this.store.epoch,current=()=>!this.disposed&&this.owns()&&scope===this.writeScope()&&epoch===this.store.epoch;
-    if(!current())return;this.rememberDelegates(scope,id,raw);await this.ledger.ingest(scope,id,raw,{isCurrent:current});
+    if(!current())return;this.rememberDelegates(scope,id,raw);
+    if(this.ledger.ingest===UsageLedger.prototype.ingest){
+      const rows=usageRecords(raw,id);
+      const ownedRows=await this.ledger.filterForeignOwnedRows(scope,rows,{isCurrent:current});
+      if(!current()||!ownedRows.length)return;
+      await this.ledger.ingestRows(scope,id,ownedRows,{isCurrent:current});
+      return;
+    }
+    await this.ledger.ingest(scope,id,raw,{isCurrent:current});
   }
   // Foreground metrics do not await usage persistence: a SQLite import or
   // summary can take seconds. Only bounded numeric rows cross this boundary.
@@ -657,7 +702,9 @@ export class DesktopUsage{
     try{
       if(state.batch){
         const batch=state.batch,current=()=>state.current()&&guardActive(batch.guard);
-        await this.ledger.ingestRows(state.scope,state.id,[...batch.rows.values()],{isCurrent:current});
+        const ownedRows=await this.ledger.filterForeignOwnedRows(state.scope,[...batch.rows.values()],{isCurrent:current});
+        if(!state.current())return;
+        if(ownedRows.length)await this.ledger.ingestRows(state.scope,state.id,ownedRows,{isCurrent:current});
         if(!state.current())return;
         this.releaseLiveGroup(batch);state.batch=null;if(state.failureKind==='write'){state.failed=false;state.failureKind=null;state.failures=0;}if(current())state.persistedForegroundVersion=batch.foregroundVersion;
       }else{

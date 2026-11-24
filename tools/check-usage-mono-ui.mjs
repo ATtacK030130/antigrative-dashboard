@@ -6,7 +6,7 @@ import {join,dirname} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
 const repo=join(dirname(fileURLToPath(import.meta.url)),'..');
-const [i18n,theme,inline,usage]=await Promise.all(['compat/i18n.cjs','compat/theme.cjs','compat/inline-widget.cjs','compat/usage-ui.cjs'].map(f=>readFile(join(repo,f),'utf8')));
+const [i18n,theme,inline,usage,pricing]=await Promise.all(['compat/i18n.cjs','compat/theme.cjs','compat/inline-widget.cjs','compat/usage-ui.cjs','compat/pricing.cjs'].map(f=>readFile(join(repo,f),'utf8')));
 const extract=s=>s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'');
 const row=(total,ratio=[.14,.84,.005])=>{const uncached=Math.round(total*ratio[0]),cacheRead=Math.round(total*ratio[1]),cacheWrite=Math.round(total*ratio[2]);return {uncached,cacheRead,cacheWrite,output:total-uncached-cacheRead-cacheWrite,total,requests:Math.max(1,Math.round(total/60000))};};
 const plan={1:{'Gemini 3.8 Flash':29.2e6,'Gemini 4 Argon':5.4e6,'Orchestrator (Argon)':1.0e6},3:{'Gemini 3.8 Flash':39.6e6},7:{'Gemini 3.8 Flash':17.8e6,'Claude Sonnet 4.6':2.3e6},13:{'Gemini 4 Hydrogen':81.8e6,'Gemini 4 Argon':2.1e6},14:{'Gemini 4 Hydrogen':48.6e6,'Gemini 4 Hydrogen (Orchestrator)':10.0e6},21:{'Claude Opus 4.6':7.2e6,'Gemini 4 Hydrogen':5.2e6}};
@@ -17,7 +17,7 @@ const fixture={accountKey:'fixture',scope:'local',today:'2026-11-22',timeZone:'A
 const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#17181a;color:#ddd;font:13px 'Segoe UI';padding:50px}.rounded-composer{max-width:900px;margin:300px auto 0;background:#27282a;padding:12px;border-radius:18px}.editor{height:45px}.actions{display:flex;align-items:center;gap:5px}.left{display:flex;flex:1;min-width:0}.right{display:flex;gap:5px}button{background:transparent;border:0;color:inherit;height:28px}</style></head><body><div class="rounded-composer"><div class="editor" contenteditable="true" role="combobox" aria-label="Message input"></div><div class="actions"><div class="left"><button aria-label="Add context">＋</button><button data-testid="model-selector-trigger">Gemini 4 Hydrogen</button></div><div class="right"><button aria-label="Send message">➜</button></div></div></div><script>
 history.replaceState({},'', '/c/11111111-1111-1111-1111-111111111111');window.testData=${JSON.stringify(fixture)};window.testPrefs={language:'zh-CN',languageGuideDismissed:true,usageGuideDismissed:true,revision:1};
 window.agPulseHost={getMetrics:async()=>({connection:'live',usage:testData,preferences:testPrefs,groups:[],speed:null}),getPreferences:async()=>testPrefs,setPreferences:async x=>testPrefs={...testPrefs,...x,revision:testPrefs.revision+1}};
-window.__agPulseI18nFactory=(${extract(i18n)});window.__agPulseThemeFactory=(${extract(theme)});window.__agPulseUsageFactory=(${extract(usage)});(${extract(inline)})();
+window.__agPulseI18nFactory=(${extract(i18n)});window.__agPulseThemeFactory=(${extract(theme)});window.__agPulsePricingFactory=(${extract(pricing)});window.__agPulseUsageFactory=(${extract(usage)});(${extract(inline)})();
 </script></body></html>`;
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html;charset=utf-8');res.end(html);});server.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(process.env.PLAYWRIGHT_MODULE).href:'playwright');
