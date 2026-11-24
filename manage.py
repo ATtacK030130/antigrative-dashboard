@@ -358,18 +358,31 @@ def main():
     p = sub.add_parser('install-cli', help='Install the official CLI statusLine adapter independently of desktop')
     p.add_argument('--node', help='Node.js 20+ executable (defaults to PATH)')
     p.add_argument('--language', choices=('en', 'zh-CN', 'zh-TW'), help='Override shared desktop language choice')
+    p.add_argument('--no-hook', action='store_true', help='Do not register the #usage hook in ~/.gemini/config/hooks.json')
     for action in ('uninstall-cli', 'status-cli'): sub.add_parser(action)
+    p = sub.add_parser('usage-cli', help='Print CLI usage details (same as #usage inside agy)')
+    p.add_argument('--watch', action='store_true')
+    p.add_argument('--language', choices=('en', 'zh-CN', 'zh-TW'))
     p = sub.add_parser('package'); p.add_argument('--output')
     args = parser.parse_args()
     explicit_app = bool(args.action in ('install', 'status', 'launch') and getattr(args, 'app_path', None))
     if explicit_app:
         APP = args.app_path.expanduser().resolve()
     try:
+        if args.action == 'usage-cli':
+            node = shutil.which('node')
+            if not node:
+                raise RuntimeError('Node.js 20+ is required on PATH.')
+            extra = (['--watch'] if args.watch else []) + (['--language', args.language] if args.language else [])
+            try:
+                return subprocess.call([node, str(SOURCE / 'cli' / 'usage.mjs'), *extra])
+            except KeyboardInterrupt:
+                return 0
         if args.action in ('install-cli', 'uninstall-cli', 'status-cli'):
             spec = importlib.util.spec_from_file_location('pulse_cli_lifecycle', SOURCE / 'cli' / 'lifecycle.py')
             cli = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(cli)
-            if args.action == 'install-cli': cli.install(SOURCE, HOME, args.node, args.language)
+            if args.action == 'install-cli': cli.install(SOURCE, HOME, args.node, args.language, hook=not args.no_hook)
             elif args.action == 'uninstall-cli': cli.uninstall(HOME)
             else: cli.status(HOME)
             return 0

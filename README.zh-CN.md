@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.16：** 修复独立 Antigravity IDE 的 VSIX 打包遗漏 `compat/host-theme.mjs` 导致后台采集进程启动即退出的问题（#19），并新增 VSIX 全量相对导入扫描与解包实机 ESM 启动校验；同时包含 v0.9.15 的单色冰山图/打孔卡用量仪表、缓存率与金额换算、K/M/B/T 紧凑单位及后台 worker 汇总优化。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [兼容性](COMPATIBILITY.md)。
+**v0.9.16：** 修复独立 Antigravity IDE 的 VSIX 打包遗漏 `compat/host-theme.mjs` 导致后台采集进程启动即退出的问题（#19）并新增 VSIX 全量相对导入扫描与实机 ESM 启动校验；同时全面升级 **Antigravity CLI（`agy`）** 状态栏，新增会话 Token、全版本缓存命中率、估算速率 `≈ t/s`、本轮/上轮小结、零额度本地 `#usage` 用量详情与 `usage-cli`、Termux `android` 兼容、旧版 Windows 控制台自动 ASCII 符号回退、`.cmd` 轻量启动器与 `--doctor` 自检。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -81,7 +81,7 @@ Antigravity 扩展目前尚未兼容。详见 [IDE 安装、更新、诊断和�
 
 ## Antigravity CLI 状态栏
 
-**v0.6.0 新增**独立的 CLI 官方状态栏适配：上下文占用、缓存读取 Token、状态、分组额度及重置倒计时，支持中英文和终端宽度适配。额度数字和进度条按剩余量显示：**≥70% 绿色、≥30% 且 <70% 黄色、<30% 红色**。预览：`node cli/statusline.mjs --preview --language zh-CN`；安装：`python manage.py install-cli`（Linux/macOS 用 `python3`）。需要 Node.js 20+ 和支持官方接口的 CLI。v0.8.1 新增当前请求缓存率：适用 CLI 1.3.2/1.3.3 的 Sonnet 4.6、GPT-OSS 120B 及 CLI 1.3.3 的 Gemini 3.8 Flash (High) 已核实口径且写入为零；未确认情况保留不可用。官方输入没有流式耗时，暂不显示 tok/s。详见 [CLI 使用及撤回](docs/CLI.md)。
+独立的 Antigravity CLI（`agy`）官方 `statusLine` 适配：显示上下文占用、会话 Token（`↑`/`↓`）、缓存命中率、估算速率（`≈ t/s`）、花费、状态、分组额度（Gemini、Claude/GPT、Argon 周额度）及重置倒计时，以及 `本轮`/`上轮` 小结，支持英/简/繁三语、40 列 Termux 竖屏与旧版 Windows 控制台自动 ASCII 符号回退。额度数字和进度条按剩余量显示：**≥70% 绿色、≥30% 且 <70% 黄色、<30% 红色**。在 `agy` 中输入 `#usage`（`#u`/`#用量`/`##`）可零额度本地查看用量详情，或运行 `python manage.py usage-cli [--watch]`。预览：`node cli/statusline.mjs --preview --language zh-CN`；自检：`node cli/statusline.mjs --doctor`；安装：`python manage.py install-cli`（Linux/macOS 用 `python3`）。需要 Node.js 20+。详见 [CLI 使用及撤回](docs/CLI.md)。
 
 ![真实 Antigravity CLI 两轮对话及当前请求缓存率](docs/assets/cli-conversation-zh.png?v=0.8.4-cli-1)
 

@@ -4,7 +4,7 @@ import json
 import base64
 import os
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import tempfile
@@ -165,6 +165,86 @@ class CliLifecycleTests(unittest.TestCase):
                                 input='{}', capture_output=True, encoding='utf-8', timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('上下文', re.sub(r'\x1b\[[\d;]+m', '', result.stdout))
+
+    def test_usage_hook_is_registered_upgraded_and_removed_without_touching_other_hooks(self):
+        hooks_file = cli.hooks_path(self.home)
+        cli.write(hooks_file, {'my-linter': {'PostToolUse': [{'matcher': 'run_command', 'hooks': [{'command': 'lint'}]}]}})
+        cli.install(ROOT, self.home, language='zh-CN')
+        cli.install(ROOT, self.home, language='en')
+        hooks = cli.read(hooks_file)
+        self.assertEqual(hooks['my-linter'], {'PostToolUse': [{'matcher': 'run_command', 'hooks': [{'command': 'lint'}]}]})
+        handler = hooks[cli.HOOK_NAME]['PreInvocation'][0]
+        self.assertEqual(handler['type'], 'command')
+        self.assertTrue((self.runtime / 'cli' / 'hook.mjs').is_file())
+        # The registered command really answers #usage through the shell transport.
+        result = subprocess.run(handler['command'], shell=True, capture_output=True, encoding='utf-8', timeout=30,
+                                input=json.dumps({'lastUserInput': '#用量', 'conversationId': 'x'}),
+                                env={**os.environ, 'AG_PULSE_CLI_DATA': str(self.home / 'data')})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['terminationBehavior'], 'terminate')
+        status = io.StringIO()
+        with patch('sys.stdout', status):
+            cli.status(self.home)
+        self.assertTrue(json.loads(status.getvalue())['usageHook'])
+        cli.uninstall(self.home)
+        self.assertEqual(set(cli.read(hooks_file)), {'my-linter'})
+
+    def test_hook_file_created_by_us_is_removed_and_no_hook_option_skips_it(self):
+        hooks_file = cli.hooks_path(self.home)
+        cli.install(ROOT, self.home)
+        self.assertIn(cli.HOOK_NAME, cli.read(hooks_file))
+        cli.install(ROOT, self.home, hook=False)
+        self.assertFalse(hooks_file.exists())
+        cli.install(ROOT, self.home)
+        cli.uninstall(self.home)
+        self.assertFalse(hooks_file.exists())
+        cli.install(ROOT, self.home, hook=False)
+        self.assertFalse(hooks_file.exists())
+        cli.uninstall(self.home)
+
+    def test_foreign_hook_with_our_name_blocks_install_and_survives_uninstall(self):
+        hooks_file = cli.hooks_path(self.home)
+        foreign = {'PreInvocation': [{'command': 'someone-else'}]}
+        cli.write(hooks_file, {cli.HOOK_NAME: foreign})
+        with self.assertRaises(RuntimeError): cli.install(ROOT, self.home)
+        self.assertFalse(self.settings.exists())
+        cli.write(hooks_file, {})
+        cli.install(ROOT, self.home)
+        cli.write(hooks_file, {cli.HOOK_NAME: foreign})
+        cli.uninstall(self.home)
+        self.assertEqual(cli.read(hooks_file), {cli.HOOK_NAME: foreign})
+
+    def test_windows_shim_is_used_only_for_safe_paths(self):
+        shim = cli.windows_shim('C:\\Program Files\\nodejs\\node.exe', Path('C:\\Users\\dev\\.gemini\\antigravity-cli\\antigrative-dashboard'), 'statusline.mjs', 'zh-CN')
+        self.assertEqual(str(shim[0]), 'C:\\Users\\dev\\.gemini\\antigravity-cli\\antigrative-dashboard\\statusline.cmd')
+        self.assertEqual(shim[1], '@echo off\r\n"C:\\Program Files\\nodejs\\node.exe" "%~dp0cli\\statusline.mjs" --language zh-CN\r\n')
+        # Unicode user folders are fine: CMD expands %~dp0 internally.
+        self.assertIsNotNone(cli.windows_shim('C:\\node\\node.exe', Path('C:\\Users\\张三\\x'), 'hook.mjs'))
+        for root in ('C:\\Users\\my name\\x', 'C:\\Users\\a&b\\x', 'C:\\Users\\100%\\x', 'C:\\Users\\a(b)\\x'):
+            self.assertIsNone(cli.windows_shim('C:\\node\\node.exe', Path(root), 'hook.mjs'))
+        self.assertIsNone(cli.windows_shim('C:\\节点\\node.exe', Path('C:\\x'), 'hook.mjs'))
+        command, _ = cli.launcher('/usr/bin/node', PurePosixPath('/data/data/com.termux/files/home/x'), 'hook.mjs', platform='linux')
+        self.assertEqual(command, '/usr/bin/node /data/data/com.termux/files/home/x/cli/hook.mjs')
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows CMD runner only')
+    def test_windows_shim_runs_through_cmd(self):
+        with tempfile.TemporaryDirectory(prefix='pulseshim') as folder:
+            home = Path(folder).resolve()
+            if not cli.SAFE_CMD_PATH.match(str(home)):
+                self.skipTest('Temporary directory path contains spaces or CMD metacharacters')
+            cli.install(ROOT, home, language='zh-CN')
+            _, settings, root, _ = cli.paths(home)
+            selected = cli.read(settings)['statusLine']['command']
+            self.assertTrue(selected.endswith('statusline.cmd'))
+            result = subprocess.run(['cmd.exe', '/d', '/s', '/c', selected], input=json.dumps({'context_window': {'used_percentage': 5}}),
+                                    capture_output=True, encoding='utf-8', timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('上下文 5%', re.sub(r'\x1b\[[\d;]+m', '', result.stdout))
+            hook = cli.read(cli.hooks_path(home))[cli.HOOK_NAME]['PreInvocation'][0]['command']
+            result = subprocess.run(['cmd.exe', '/d', '/s', '/c', hook], input=json.dumps({'lastUserInput': '＃用量'}),
+                                    capture_output=True, encoding='utf-8', timeout=15, env={**os.environ, 'AG_PULSE_CLI_DATA': str(home / 'data')})
+            self.assertEqual(json.loads(result.stdout)['terminationBehavior'], 'terminate')
+            cli.uninstall(home)
 
     def test_active_lifecycle_lock_blocks_overlapping_install(self):
         self.base.mkdir(parents=True)

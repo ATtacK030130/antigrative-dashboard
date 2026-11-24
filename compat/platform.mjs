@@ -3,7 +3,11 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 
+// Termux's Node reports 'android'; its user space follows Linux/XDG conventions.
+export const hostPlatform = (platform = process.platform) => platform === 'android' ? 'linux' : platform;
+
 export function platformPaths({ platform = process.platform, home = homedir(), env = process.env } = {}) {
+  platform = hostPlatform(platform);
   let config, local;
   if (platform === 'win32') {
     config = env.APPDATA || join(home, 'AppData', 'Roaming');
@@ -29,6 +33,7 @@ export function platformPaths({ platform = process.platform, home = homedir(), e
 }
 
 export function agentExecutables({ platform = process.platform, home = homedir(), env = process.env, arch = process.arch } = {}) {
+  platform = hostPlatform(platform);
   if (env.ANTIGRAVITY_AGENTAPI_EXE) return [env.ANTIGRAVITY_AGENTAPI_EXE];
   const roots = platform === 'win32' ? [join(env.LOCALAPPDATA || join(home,'AppData','Local'),'Programs','antigravity','resources')]
     : platform === 'darwin' ? ['/Applications/Antigravity.app/Contents/Resources',join(home,'Applications','Antigravity.app','Contents','Resources')]

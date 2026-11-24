@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.9.16:** Fixes standalone Antigravity IDE VSIX packaging omitting `compat/host-theme.mjs` (#19) and adds automated VSIX relative-import completeness & Node ESM startup checks, alongside all v0.9.15 monochrome usage instrument (iceberg chart, punch card, cache hit rate, USD cost, K/M/B/T units) and worker SQLite improvements. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [Compatibility](COMPATIBILITY.md).
+**v0.9.16:** Fixes standalone Antigravity IDE VSIX packaging omitting `compat/host-theme.mjs` (#19) with automated VSIX relative-import & ESM startup checks, and upgrades the **Antigravity CLI (`agy`)** adapter with conversation totals, universal cache hit rate, estimated `≈ t/s`, turn summaries, zero-quota `#usage` local reports (`usage-cli`), Termux `android` support, automatic legacy-console ASCII fallback, fast Windows `.cmd` launchers, and `--doctor` diagnostics. [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
@@ -85,7 +85,7 @@ See [IDE installation, update, diagnostics and data cleanup](ide/README.md).
 
 ## Antigravity CLI status line
 
-Available in **v0.6.0**: an independent adapter for the official Antigravity CLI `statusLine` interface displays context occupancy, cache read tokens, state and grouped quotas, with English/Chinese and terminal-width adaptation. Remaining quota numbers and bars are **green ≥70%, yellow ≥30% and <70%, red <30%**. Preview: `node cli/statusline.mjs --preview`; install: `python manage.py install-cli` (Linux/macOS: `python3`). Requires Node.js 20+ and a CLI supporting the interface. Version 0.8.4 prioritizes current-request cache percentage for tested CLI 1.3.2/1.3.3 Sonnet 4.6 and GPT-OSS 120B counters, plus Gemini 3.8 Flash (High) on CLI 1.3.3, with zero cache writes; unknown cases stay unavailable. CLI tok/s needs streaming-duration data absent from the documented payload. See [CLI usage and rollback](docs/CLI.md).
+An independent adapter for the official Antigravity CLI (`agy`) `statusLine` interface displays context occupancy, conversation tokens (`↑`/`↓`), cache hit rate, estimated generation speed (`≈ t/s`), cost, agent state, grouped quotas (Gemini, Claude/GPT, Argon weekly) with reset countdowns, and a `Turn` / `Last turn` summary row — supporting `en` / `zh-CN` / `zh-TW`, narrow 40-column Termux screens, and automatic ASCII glyph fallback on legacy Windows consoles. Remaining quota numbers and bars are **green ≥70%, yellow ≥30% and <70%, red <30%**. Type `#usage` (`#u`, `#用量`, `##`) inside `agy` for local usage details without calling the model, or run `python manage.py usage-cli [--watch]`. Preview: `node cli/statusline.mjs --preview`; diagnostics: `node cli/statusline.mjs --doctor`; install: `python manage.py install-cli` (Linux/macOS: `python3`). Requires Node.js 20+. See [CLI usage and rollback](docs/CLI.md).
 
 ![Real Antigravity CLI conversation with current-request cache percentage](docs/assets/cli-conversation.png?v=0.8.4-cli-1)
 

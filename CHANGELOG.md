@@ -1,9 +1,13 @@
 # Changelog
 
-## 0.9.16 — 2026-11-23
+## 0.9.16 — 2026-11-24
 
 - Fix standalone Antigravity IDE VSIX packaging omitting `compat/host-theme.mjs` (`ide/package.py`, `tools/publish-release.py`), which caused the IDE background collector (`ide/main.mjs`) to exit immediately on startup with `ERR_MODULE_NOT_FOUND` (#19).
 - Add automated VSIX packaging completeness checks (`tests/test_ide.py`): verify every relative `import` / `require` / `new URL(..., import.meta.url)` target inside the built `.vsix` exists and run a real Node ESM import-resolution smoke check on the extracted `extension/ide/main.mjs` entrypoint so missing modules cannot slip into future releases.
+- Upgrade the **Antigravity CLI (`agy`)** status line and add local usage details (`cli/ledger.mjs`, `cli/hook.mjs`, `cli/report.mjs`, `cli/usage.mjs`, `cli/render.mjs`, `cli/metrics.mjs`, `cli/statusline.mjs`, `cli/lifecycle.py`, `manage.py`):
+  - Priority-driven responsive layout displaying conversation tokens (`↑`/`↓`), universal cache hit rate, estimated generation speed (`≈ t/s`), cost, and a live `Turn` / `Last turn` summary row while keeping narrow 40-column Termux screens, Argon weekly quota (`gemini-argon-wtu-weekly`), and `en`/`zh-CN`/`zh-TW` intact.
+  - Local per-conversation usage ledger (`~/.gemini/antigravity-cli/antigrative-dashboard-data/`, one-way hashed keys, whitelisted numbers only, baseline handling for `/resume`) plus a zero-quota `#usage` / `#u` / `#用量` / `##` `PreInvocation` hook (`~/.gemini/config/hooks.json`, opt-out via `--no-hook`) and standalone terminal report (`python manage.py usage-cli [--watch]` / `node cli/usage.mjs`).
+  - Termux `android` → Linux/XDG path mapping (`compat/platform.mjs`), automatic ASCII glyph fallback for legacy Windows `conhost` (`--ascii`/`--unicode`/`AG_PULSE_CLI_GLYPHS`), fast Windows `.cmd` shims (`statusline.cmd`/`hook.cmd`) for safe paths, exit-0 graceful degradation on bad stdin, `--doctor` diagnostics, and browser preview generator (`tools/preview-cli.mjs`).
 
 ## 0.9.15 — 2026-11-23
 
