@@ -114,7 +114,7 @@ const integration = new RuntimeUi({
   diagnoseError: async error => {
     if (error?.code !== 'ENOENT') { missingPortTicks = 0; return null; }
     const hostResources = resolveHostResources();
-    if (isRemoteHeadlessHost({ server: store.client.server, hasLocalHostApp: Boolean(hostResources) })) {
+    if (isRemoteHeadlessHost({ server: store.client?.server, hasLocalHostApp: Boolean(hostResources) })) {
       missingPortTicks = 0;
       return {
         state: 'unavailable',
@@ -146,7 +146,7 @@ const integration = new RuntimeUi({
 if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   const { SidecarApp, Response } = await loadSidecarSdk();
   if(!await ownership.claim())process.exit(0);
-  if (!isRemoteHeadlessHost({ server: store.client.server, hasLocalHostApp: Boolean(resolveHostResources()) })) {
+  if (!isRemoteHeadlessHost({ server: store.client?.server, hasLocalHostApp: Boolean(resolveHostResources()) })) {
     void syncLaunchConfig(true).catch(() => {});
   }
   const app = new SidecarApp();
