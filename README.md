@@ -111,7 +111,7 @@ On Linux / macOS, use `python3 manage.py install` or `sh install.sh` (and `pytho
 
 **Moving an existing installation:** If the previous repository is unavailable, older App releases (`<= v0.8.20`) cannot find this update themselves. Download the new release ZIP and run `python manage.py install` once (`python3` on Linux/macOS), then fully restart the App; later App checks use this repository. IDE users install the new VSIX separately. For CLI, rerun `python manage.py install-cli` from the new ZIP, including any previously chosen `--language` or `--node` options.
 
-Fully quit and reopen Antigravity. Open a conversation: the strip appears beside the model selector. PowerShell users can also run `./install.ps1`.
+Fully quit and reopen Antigravity. On **macOS (Antigravity 2.33.0+)**, press `⌘Q` to quit and open `~/Applications/Antigravity (Dashboard).app` (via Spotlight or Dock) or run `python3 manage.py launch --restart` instead of reopening the stock `/Applications/Antigravity.app` (which launches without `--remote-debugging-port=0`). Open a conversation: the strip appears beside the model selector. PowerShell users can also run `./install.ps1`.
 
 The installer copies and enables the plugin and restores any exactly verified legacy patch during migration. The runtime discovers the current renderer port and reconnects automatically. **Keep the extracted source folder** for enable, disable, update, and uninstall commands.
 
@@ -249,7 +249,7 @@ Open context details and choose **English / 简体中文 / 繁體中文** at the
 
 <details><summary><strong>The strip did not appear after installation.</strong></summary>
 
-Fully quit the main app process and reopen it. Run `python manage.py status`. Inspect `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` and `data/integration-state.json`. Review raw host logs for local information before publishing them.
+Fully quit the main app process and reopen it. On **macOS (Antigravity 2.33.0+)**, reopening the stock `/Applications/Antigravity.app` starts without the remote debugging flag (`reason: "debug-port-disabled"`); quit with `⌘Q` and open `~/Applications/Antigravity (Dashboard).app` (or run `python3 manage.py launch --restart`), or open the native side panel (**＋ → Extensions → Antigrative Dashboard**), which works under any launch method. Run `python manage.py status` (`python3` on Linux/macOS), and inspect `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` and `data/integration-state.json`. Review raw host logs for local information before publishing them.
 
 </details>
 

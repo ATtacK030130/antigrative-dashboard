@@ -109,7 +109,7 @@ python manage.py install
 
 **已有安装如何迁移：** 如果旧仓库无法访问，旧版（`<= v0.8.20`）App 更新器无法自行发现本次迁移。请下载新发布页的 ZIP，解压后执行一次 `python manage.py install`（Linux/macOS 使用 `python3`），再完整重启 App；之后 App 检查更新会使用新仓库。IDE 需要单独安装新版 VSIX；CLI 使用新 ZIP 重新执行 `python manage.py install-cli`，如之前指定过 `--language` 或 `--node`，请一并带上。
 
-完全退出并重新打开 Antigravity。打开对话，模型选择右侧就会出现额度与速率条。PowerShell 用户也可以运行 `./install.ps1`。
+完全退出并重新打开 Antigravity。**macOS（Antigravity 2.33.0+）**请先按 `⌘Q` 完全退出，再打开 `~/Applications/Antigravity (Dashboard).app`（可从 Spotlight 或拖入 Dock 启动），或运行 `python3 manage.py launch --restart`——直接重开原版 `/Applications/Antigravity.app` 不会携带调试端口参数，导致内嵌状态条不显示。打开对话，模型选择右侧就会出现额度与速率条。PowerShell 用户也可以运行 `./install.ps1`。
 
 安装器复制并启用插件；迁移时只恢复经过完整校验的旧补丁。后台自动发现当前渲染端口并重新连接。**保留这个源码 / 解压目录**，以便启停、升级和卸载。
 
@@ -250,7 +250,7 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 <details><summary><strong>安装后没出现？</strong></summary>
 
-确认已完全退出主进程再启动 App，不只是关闭窗口。执行 `python manage.py status`；检查 `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` 和 `data/integration-state.json`。日志不要直接公开，其中宿主产生的日志可能含本机信息。
+确认已完全退出主进程再启动 App，不只是关闭窗口。**macOS（Antigravity 2.33.0+）**如果直接从原版 `/Applications/Antigravity.app` 启动，会因缺少 `--remote-debugging-port=0` 而出现 `reason: "debug-port-disabled"`；请按 `⌘Q` 退出后改用 `~/Applications/Antigravity (Dashboard).app` 启动（或执行 `python3 manage.py launch --restart`），也可先通过右侧辅助栏 **＋ → Extensions → Antigrative Dashboard** 打开原生侧面板（任意启动方式均可用）。排查时可执行 `python manage.py status`（Linux/macOS 用 `python3`），并检查 `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` 与 `data/integration-state.json`。日志不要直接公开，其中宿主产生的日志可能含本机信息。
 
 </details>
 
