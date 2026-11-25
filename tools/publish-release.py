@@ -14,7 +14,7 @@ LARGE_CONVERSATION_MODULES = tuple('sidecars/panel/' + name + '.mjs' for name in
 ))
 IDE_RUNTIME_MODULES = tuple('ide/' + name for name in (
     'main.mjs', 'runtime.mjs', 'webview-targets.mjs', 'client.mjs',
-    'discovery.mjs', 'surface.cjs',
+    'remote-client.mjs', 'launch-self-heal.mjs', 'discovery.mjs', 'surface.cjs',
 ))
 
 
@@ -35,7 +35,7 @@ def checked_assets(root, tag):
             archive.getinfo(prefix + required)
         for required in IDE_RUNTIME_MODULES:
             archive.getinfo(prefix + required)
-        for required in ['compat/pricing.cjs', 'compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/quota-estimator.mjs', 'sidecars/panel/usage.mjs']:
+        for required in ['compat/pricing.cjs', 'compat/usage-ui.cjs', 'sidecars/panel/socks5.mjs', 'sidecars/panel/ssh-remote.mjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/quota-estimator.mjs', 'sidecars/panel/usage.mjs']:
             archive.getinfo(prefix + required)
         for required in LARGE_CONVERSATION_MODULES:
             archive.getinfo(prefix + required)
@@ -67,7 +67,7 @@ def checked_assets(root, tag):
             archive.getinfo(name)
         for name in IDE_RUNTIME_MODULES:
             archive.getinfo('extension/' + name)
-        for name in ['compat/host-theme.mjs', 'compat/pricing.cjs', 'compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/quota-estimator.mjs', 'sidecars/panel/usage.mjs']:
+        for name in ['compat/host-theme.mjs', 'compat/launch-config.mjs', 'compat/pricing.cjs', 'compat/usage-ui.cjs', 'sidecars/panel/socks5.mjs', 'sidecars/panel/ssh-remote.mjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/quota-estimator.mjs', 'sidecars/panel/usage.mjs']:
             archive.getinfo('extension/' + name)
         for name in LARGE_CONVERSATION_MODULES:
             archive.getinfo('extension/' + name)

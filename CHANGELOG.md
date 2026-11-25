@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.17 — 2026-11-25
+
+- Support live inline composer status bar in **Antigravity App `(SSH: <host>)` windows** (#23):
+  - Add a zero-dependency loopback-only RFC 1928 SOCKS5 client (`sidecars/panel/socks5.mjs`) shared by ordinary RPC calls, `streamTrajectoryPage`, and background collection workers (`sidecars/panel/client.mjs`, `sidecars/panel/trajectory-reader.mjs`, `sidecars/panel/background-statistics.mjs`).
+  - Automatically detect local `ssh -D` dynamic proxy tunnels (`sidecars/panel/ssh-remote.mjs`), strictly validate host destinations and allowlisted SSH flags, probe remote same-UID `language_server` processes and newest-first multi-line `~/.gemini/antigravity/daemon/{hub,ls}_*.json` files via non-interactive `ssh -T -n -o BatchMode=yes`, cache matched endpoints and renew leases via SOCKS5 probing without redundant SSH calls (silently backing off on password/2FA hosts).
+  - Route local and remote SSH App windows into isolated `localContext` / `remoteContexts` (`compat/runtime-ui.mjs`, `sidecars/panel/main.mjs`, `sidecars/panel/usage.mjs`), disabling local disk transcript/archive scans for remote contexts while merging remote usage into the shared local same-account `UsageLedger` and evicting idle contexts when remote windows close.
+- Support **Remote-SSH windows in standalone Antigravity IDE** (#23):
+  - Extend `ide/webview-targets.mjs` to decode and validate `vscode-remote+ssh-002dremote-002b...vscode-resource.vscode-cdn.net` authorities and official remote `.antigravity-ide-server/{bin/*,cli/servers/*/server}/extensions/agy/bridge.js` paths, cross-checking against workbench configuration and forwarding `remoteAuthority`, `backendPort`, and `workspaceUri`.
+  - Add `ide/remote-client.mjs` and per-window remote contexts in `ide/main.mjs` (toggleable via `antigrativeDashboard.ide.remoteSsh`) to read remote multi-line `daemon/{hub,ls}_*.json` blocks over `ssh -o BatchMode=yes` (supporting remote `agy 2.35+` without CLI `--csrf_token`) and pair candidate credentials against the IDE's locally forwarded loopback `backendPort`.
+- Add **stale `DevToolsActivePort` TCP liveness probing and cross-platform launch-flag self-healing** for standalone Antigravity IDE (#23):
+  - Probe `127.0.0.1:<port>` (`probeActiveDebugPort` in `compat/launch-config.mjs`) before spawning `ide/main.mjs`, distinguishing live ports from stale leftover files left behind after IDE auto-updates clear shortcut flags instead of silently spinning in `reconnecting`.
+  - Add IDE-specific shortcut/launcher detection and repair (`isAntigravityIdeShortcut`, `inspectIdeLaunch`, `ensureIdeLaunchConfig` across Windows `.lnk`, Linux `antigravity-ide.desktop`, and macOS `Antigravity IDE (Dashboard).app`), strictly disjoint from Desktop App shortcuts, controlled by `antigrativeDashboard.ide.autoConfigureLaunch` (`prompt` / `auto` / `off`) and the new `Antigrative Dashboard: Repair IDE Launch Flags` command (`ide/launch-self-heal.mjs`, `ide/extension.cjs`, `ide/package.json`, `ide/package.py`).
+
 ## 0.9.16 — 2026-11-24
 
 - Fix standalone Antigravity IDE VSIX packaging omitting `compat/host-theme.mjs` (`ide/package.py`, `tools/publish-release.py`), which caused the IDE background collector (`ide/main.mjs`) to exit immediately on startup with `ERR_MODULE_NOT_FOUND` (#19), and add automated VSIX relative-import completeness & real Node ESM import-resolution checks (`tests/test_ide.py`).

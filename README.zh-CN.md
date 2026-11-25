@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.16](https://img.shields.io/badge/version-0.9.16-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.17](https://img.shields.io/badge/version-0.9.17-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.34.0](https://img.shields.io/badge/Antigravity-2.34.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.16：** 修复独立 Antigravity IDE VSIX 启动失败（#19）、新增内嵌状态条一键折叠「极简模式」（#20）、通过共用 `compat/pricing.cjs` 在 USD 成本空间直接估算周期满额（#21）、新增 Antigravity 2.34.0+ daemon 发现与远程 SSH/WSL Hub 适配，并全面升级 **Antigravity CLI（`agy`）** 状态栏（会话 Token、全版本缓存率、估算 `≈ t/s`、本轮/上轮小结、零额度 `#usage` 本地报告与 `usage-cli`、Termux、自动 ASCII 符号回退、`.cmd` 启动器与 `--doctor` 自检）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [兼容性](COMPATIBILITY.md)。
+**v0.9.17：** 新增 **Antigravity 桌面 App `(SSH: <host>)` 窗口内嵌状态条**实时统计（经本机回环 SOCKS5 `-D` 隧道与隔离远端上下文路由）、**独立 Antigravity IDE Remote-SSH 适配**（支持远端 `agy 2.35+` 多行 `daemon/{hub,ls}_*.json` 与转发端口配对），以及独立 IDE **过期 `DevToolsActivePort` 探活与跨平台启动参数自愈**（#23）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.17) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -66,7 +66,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.16.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.17.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带

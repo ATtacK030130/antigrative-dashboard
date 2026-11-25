@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for pace forecasts, window usage and five-hour / weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.9.16](https://img.shields.io/badge/version-0.9.16-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.17](https://img.shields.io/badge/version-0.9.17-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.34.0](https://img.shields.io/badge/Antigravity-2.34.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.9.16:** Fixes standalone Antigravity IDE VSIX startup (#19), adds one-click **Minimal bar** inline collapse (#20), estimates weekly quota capacity directly in USD cost space via shared `compat/pricing.cjs` (#21), adds Antigravity 2.34.0+ daemon & Remote SSH/WSL Hub discovery, and ships a major **Antigravity CLI (`agy`)** upgrade (conversation tokens, cache hit, estimated `≈ t/s`, turn summaries, zero-quota `#usage` local hook, `usage-cli`, Termux, ASCII fallback, fast `.cmd` launchers, and `--doctor`). [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.16) · [Compatibility](COMPATIBILITY.md).
+**v0.9.17:** Adds live inline status-bar routing for **Antigravity App `(SSH: <host>)` windows** via loopback SOCKS5 `-D` tunnels, **Remote-SSH window support** for standalone Antigravity IDE (`agy 2.35+` multi-line daemon discovery + local forwarded port pairing), and **stale `DevToolsActivePort` liveness probing + cross-platform launch-flag self-healing** for standalone IDE (#23). [Release notes](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.17) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
@@ -70,7 +70,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.9.16.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.9.17.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with
