@@ -114,6 +114,27 @@ def desktop_executable(app_asar, platform=None, env=None):
     return next((candidate for candidate in candidates if candidate.is_file()), None)
 
 
+def _read_lnk_ansi_cstr(data, start, limit, encoding):
+    end = data.find(b'\x00', start, limit)
+    if end == -1:
+        end = limit
+    return data[start:end].decode(encoding, errors='replace')
+
+
+def _read_lnk_utf16_cstr(data, start, limit):
+    raw = data[start:limit]
+    uend = next((i for i in range(0, len(raw) - 1, 2) if raw[i] == 0 and raw[i + 1] == 0), len(raw))
+    return raw[:uend].decode('utf-16le', errors='replace')
+
+
+def _join_lnk_path(base, suffix):
+    if not base or not suffix:
+        return base
+    if base.endswith(('\\', '/')):
+        return base + suffix.lstrip('\\/')
+    return base + '\\' + suffix.lstrip('\\/')
+
+
 def parse_lnk(path):
     """Parse target, arguments, working dir and icon from an MS-SHLLINK (.lnk) file."""
     path = Path(path)
@@ -145,19 +166,29 @@ def parse_lnk(path):
         info_len, info_hdr_len, info_flags = struct.unpack_from('<III', data, pos)
         if info_len < 12 or pos + info_len > len(data):
             return None
+        info_end = pos + info_len
         if info_flags & 0x01 and info_len >= 20:
-            lb_off = struct.unpack_from('<I', data, pos + 16)[0]
-            if 0 < lb_off < info_len:
-                end = data.find(b'\x00', pos + lb_off, pos + info_len)
-                if end == -1:
-                    end = pos + info_len
-                target = data[pos + lb_off:end].decode(ansi_encoding, errors='replace')
+            local_base = None
             if info_hdr_len >= 0x24 and info_len >= 32:
                 ub_off = struct.unpack_from('<I', data, pos + 28)[0]
                 if 0 < ub_off < info_len:
-                    raw = data[pos + ub_off:pos + info_len]
-                    uend = next((i for i in range(0, len(raw) - 1, 2) if raw[i] == 0 and raw[i + 1] == 0), len(raw))
-                    target = raw[:uend].decode('utf-16le', errors='replace')
+                    local_base = _read_lnk_utf16_cstr(data, pos + ub_off, info_end)
+            if local_base is None:
+                lb_off = struct.unpack_from('<I', data, pos + 16)[0]
+                if 0 < lb_off < info_len:
+                    local_base = _read_lnk_ansi_cstr(data, pos + lb_off, info_end, ansi_encoding)
+
+            common_suffix = ''
+            if info_hdr_len >= 0x24 and info_len >= 36:
+                ucps_off = struct.unpack_from('<I', data, pos + 32)[0]
+                if 0 < ucps_off < info_len:
+                    common_suffix = _read_lnk_utf16_cstr(data, pos + ucps_off, info_end)
+            if not common_suffix and info_hdr_len >= 0x1C and info_len >= 28:
+                cps_off = struct.unpack_from('<I', data, pos + 24)[0]
+                if 0 < cps_off < info_len:
+                    common_suffix = _read_lnk_ansi_cstr(data, pos + cps_off, info_end, ansi_encoding)
+
+            target = _join_lnk_path(local_base, common_suffix)
         pos += info_len
     strings = {}
     for flag, key in ((0x04, 'name'), (0x08, 'rel'), (0x10, 'workdir'), (0x20, 'args'), (0x40, 'icon')):
