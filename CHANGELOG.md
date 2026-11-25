@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.18 — 2026-11-25
+
+- Fix Remote-SSH host discovery returning empty `daemonFiles` on Linux/macOS hosts (both `zsh` and `bash`/`sh` login shells) across **Antigravity Desktop App `(SSH: <host>)` windows** and **standalone Antigravity IDE Remote-SSH** (#25, follow-up to #23):
+  - Switch `buildRemoteProbeArgs()` / `probeRemoteSshHost()` (`sidecars/panel/ssh-remote.mjs`) from passing `REMOTE_DISCOVERY_SCRIPT` in `ssh` argv (with `-n`) to invoking `ssh -T ... -- <destination> sh -s` and piping the script via `stdin` (safely swallowing early-exit `EPIPE`), keeping the script text out of remote `/proc/<pid>/cmdline` and `ps` output and isolating execution from `zsh` / `fish` / `csh` login shells while retaining all `BatchMode=yes` non-interactive authentication safeguards.
+  - Harden `REMOTE_DISCOVERY_SCRIPT` to exclude its own PID and any echoed `===AGP_PS===` / `===AGP_DAEMON===` probe/awk command lines, collapse `/proc/<pid>/cmdline` newlines via `tr '\000\015\012' '   '`, enumerate newest-first `daemon/{hub,ls}_*.json` and `ls-*.log` files via glob-free `ls -1t` / `ls -1tr` + `while IFS= read -r` (avoiding `zsh` `NOMATCH` and `IFS` word-splitting while preserving symlink, 16 KiB size, and 64-file limits), and terminate cleanly with `exit 0`.
+  - Anchor section markers (`===AGP_PS===` → `===AGP_DAEMON===` → `===AGP_LOGS===`) and file block delimiters (`===AGP_FILE:...===` / `===AGP_END===`) to full lines in `parseRemoteSshDiscovery()`, tolerating login banners, CRLF endings, and echoed script fragments; add unit and real-`sh` regressions in `sidecars/panel/tests/ssh-remote.test.mjs`.
+
 ## 0.9.17 — 2026-11-25
 
 - Support live inline composer status bar in **Antigravity App `(SSH: <host>)` windows** (#23):

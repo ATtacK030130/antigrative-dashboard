@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
+  REMOTE_DISCOVERY_SCRIPT,
   RemoteAppClient,
   RemoteAppSshRegistry,
   buildRemoteProbeArgs,
@@ -10,6 +16,7 @@ import {
   parseRemoteSshDiscovery,
   parseSshRemoteAuthority,
   parseSshTunnelCommand,
+  probeRemoteSshHost,
 } from '../ssh-remote.mjs';
 import { RuntimeUi } from '../../../compat/runtime-ui.mjs';
 
@@ -84,21 +91,206 @@ test('parseSshRemoteAuthority and decodeWebviewRemoteAuthority handle plain and 
   }
 });
 
-test('buildRemoteProbeArgs enforces non-interactive BatchMode and double-dash destination separator', () => {
+test('buildRemoteProbeArgs enforces non-interactive BatchMode, runs POSIX sh -s over stdin and keeps script out of argv', () => {
   const args = buildRemoteProbeArgs({
     destination: 'ubuntu@dev-box',
     user: 'alt',
     port: 2222,
     forwardedArgs: ['-o', 'ProxyCommand=calc', '-o', 'IdentityFile=/keys/id'],
   });
+  assert.ok(args.includes('-T'));
+  assert.equal(args.includes('-n'), false, 'must not pass -n because discovery script is piped over stdin to sh -s');
   assert.ok(args.includes('BatchMode=yes'));
   assert.ok(args.includes('PasswordAuthentication=no'));
   assert.ok(args.includes('KbdInteractiveAuthentication=no'));
   assert.ok(args.includes('ControlMaster=no'));
   assert.equal(args.some(a => /ProxyCommand/i.test(a)), false);
+  assert.equal(args.some(a => a.includes('===AGP_DAEMON===') || a.includes('language_server')), false);
   const sep = args.indexOf('--');
   assert.ok(sep > 0);
-  assert.equal(args[sep + 1], 'ubuntu@dev-box');
+  assert.deepEqual(args.slice(sep + 1), ['ubuntu@dev-box', 'sh', '-s']);
+});
+
+test('probeRemoteSshHost feeds REMOTE_DISCOVERY_SCRIPT via stdin and classifies SSH errors safely', async () => {
+  let captured = null;
+  const discovery = await probeRemoteSshHost({ destination: 'ubuntu@dev-box', port: 2222 }, {
+    sshBinary: 'ssh',
+    run: async (bin, args, opts) => {
+      captured = { bin, args, opts };
+      return {
+        stdout: [
+          '===AGP_PS===',
+          '1001 /home/u/.antigravity-hub-server/bin/2.35.1/language_server --standalone',
+          '===AGP_DAEMON===',
+          '===AGP_FILE:ls_only.json===',
+          '{"pid":1001,"httpPort":41235,"httpsPort":41234,"csrfToken":"stdin-token"}',
+          '===AGP_END===',
+          '===AGP_LOGS===',
+        ].join('\n'),
+        stderr: '',
+      };
+    },
+  });
+  assert.equal(captured.bin, 'ssh');
+  assert.deepEqual(captured.args.slice(-3), ['ubuntu@dev-box', 'sh', '-s']);
+  assert.equal(captured.opts.input, `${REMOTE_DISCOVERY_SCRIPT}\n`);
+  assert.equal(discovery.daemonFiles.length, 1);
+  assert.equal(discovery.daemonFiles[0].csrfToken, 'stdin-token');
+
+  // Missing binary / early exit must reject cleanly without unhandled stdin EPIPE errors.
+  await assert.rejects(
+    probeRemoteSshHost({ destination: 'ubuntu@dev-box' }, { sshBinary: join(tmpdir(), 'nonexistent-ssh-binary-agp-test') }),
+    err => err?.code === 'SSH_DISCOVERY_FAILED',
+  );
+  await assert.rejects(
+    probeRemoteSshHost({ destination: 'ubuntu@dev-box' }, {
+      run: async () => { throw Object.assign(new Error('denied'), { code: 255, stderr: 'Permission denied (publickey).' }); },
+    }),
+    err => err?.code === 'SSH_AUTH_UNAVAILABLE',
+  );
+});
+
+test('parseRemoteSshDiscovery ignores echoed probe script lines, login banners and CRLF endings (#25)', () => {
+  const collapsedScript = REMOTE_DISCOVERY_SCRIPT.replace(/\r?\n/g, ' ');
+  const stdout = [
+    'Welcome to Ubuntu 24.04 LTS (banner before markers)',
+    '===AGP_PS===',
+    `50001 /usr/bin/zsh -c ${collapsedScript}`,
+    `50002 /bin/bash -c ${REMOTE_DISCOVERY_SCRIPT}`,
+    '1001 /home/u/.antigravity-hub-server/bin/2.35.1/language_server --standalone --subclient_type hub',
+    '2002 /home/u/.antigravity-ide-server/bin/2.35.1/agy --hub --hub-port=45123 --workspace_id /home/u/repo',
+    '===AGP_DAEMON===',
+    '===AGP_FILE:ls_hub.json===',
+    '{',
+    '  "pid": 1001,',
+    '  "httpPort": 41235,',
+    '  "httpsPort": 41234,',
+    '  "lsVersion": "2.35.1",',
+    '  "csrfToken": "app-token-after-echo"',
+    '}',
+    '===AGP_END===',
+    '===AGP_FILE:hub_ide.json===',
+    '{',
+    '  "pid": 2002,',
+    '  "httpPort": 45123,',
+    '  "httpsPort": 45122,',
+    '  "lsVersion": "2.35.1",',
+    '  "csrfToken": "ide-token-after-echo"',
+    '}',
+    '===AGP_END===',
+    '===AGP_LOGS===',
+    '2026-11-25 listening on random port at 41235 for HTTP',
+  ].join('\r\n');
+
+  const discovery = parseRemoteSshDiscovery(stdout);
+  assert.deepEqual(discovery.processes.map(p => p.pid), [1001, 2002]);
+  assert.equal(discovery.daemonFiles.length, 2);
+  assert.deepEqual(discovery.logPorts, [41235]);
+
+  const appEndpoints = matchRemoteAppEndpoints(discovery);
+  assert.equal(appEndpoints.length, 1);
+  assert.equal(appEndpoints[0].csrf, 'app-token-after-echo');
+  assert.equal(appEndpoints[0].port, 41235);
+
+  const ideCandidates = matchRemoteIdeCandidates(discovery, { backendPort: 45123, workspaceUri: 'vscode-remote://ssh-remote+dev/home/u/repo' });
+  assert.equal(ideCandidates.length, 1);
+  assert.equal(ideCandidates[0].csrf, 'ide-token-after-echo');
+});
+
+test('REMOTE_DISCOVERY_SCRIPT runs cleanly via POSIX sh -s without hub_*.json globs and enforces symlink/size guards', async t => {
+  const shBin = process.platform === 'win32'
+    ? ['C:\\Program Files\\Git\\bin\\sh.exe', 'C:\\Program Files\\Git\\usr\\bin\\sh.exe'].find(p => existsSync(p))
+    : ['/bin/sh', '/usr/bin/sh'].find(p => existsSync(p));
+  if (!shBin) {
+    t.skip('No POSIX sh binary available on this runner');
+    return;
+  }
+
+  const fakeHome = await mkdtemp(join(tmpdir(), 'agp-ssh-probe-'));
+  t.after(() => rm(fakeHome, { recursive: true, force: true }));
+  const daemonDir = join(fakeHome, '.gemini', 'antigravity', 'daemon');
+  const logDir = join(fakeHome, '.antigravity-hub-server', 'data');
+  await mkdir(daemonDir, { recursive: true });
+  await mkdir(logDir, { recursive: true });
+
+  // Only ls_*.json exists (no hub_*.json) — reproduces the zsh NOMATCH case from #25.
+  await writeFile(join(daemonDir, 'ls_only.json'), JSON.stringify({
+    pid: 4242,
+    httpPort: 41235,
+    httpsPort: 41234,
+    lsVersion: '2.35.1',
+    csrfToken: 'real-sh-token',
+  }, null, 2));
+  await writeFile(join(daemonDir, 'ls_oversized.json'), JSON.stringify({
+    pid: 4243,
+    httpPort: 41237,
+    csrfToken: 'x'.repeat(20000),
+  }));
+  await writeFile(join(daemonDir, 'unrelated.txt'), 'ignored');
+  const outsideFile = join(fakeHome, 'outside.json');
+  await writeFile(outsideFile, JSON.stringify({ pid: 4244, httpPort: 41239, csrfToken: 'symlink-secret' }));
+  let symlinkCreated = false;
+  try {
+    await symlink(outsideFile, join(daemonDir, 'ls_link.json'));
+    symlinkCreated = true;
+  } catch {
+    // Windows without Developer Mode / admin cannot create symlinks; skip symlink assertion only.
+  }
+  await writeFile(join(logDir, 'ls-1.log'), 'info listening on random port at 41235 for HTTP\n');
+
+  const runSh = (args, input = null) => new Promise((resolve, reject) => {
+    const child = execFile(shBin, args, {
+      env: { ...process.env, HOME: fakeHome },
+      windowsHide: true,
+      timeout: 8000,
+      maxBuffer: 1024 * 1024,
+    }, (error, stdout, stderr) => {
+      if (error) reject(Object.assign(error, { stdout, stderr }));
+      else resolve({ stdout, stderr });
+    });
+    if (child.stdin) {
+      child.stdin.on('error', () => {});
+      if (input !== null) child.stdin.end(input);
+      else child.stdin.end();
+    }
+  });
+
+  // 1) Primary production mode: `sh -s` fed over stdin.
+  const viaStdin = await runSh(['-s'], `${REMOTE_DISCOVERY_SCRIPT}\n`);
+  const parsedStdin = parseRemoteSshDiscovery(viaStdin.stdout);
+  assert.equal(parsedStdin.daemonFiles.length, 1);
+  assert.equal(parsedStdin.daemonFiles[0].file, 'ls_only.json');
+  assert.equal(parsedStdin.daemonFiles[0].csrfToken, 'real-sh-token');
+  assert.deepEqual(parsedStdin.logPorts, [41235]);
+  if (symlinkCreated) {
+    assert.equal(parsedStdin.daemonFiles.some(f => f.csrfToken === 'symlink-secret'), false);
+  }
+
+  // 2) Defense-in-depth mode: even if run via `sh -c "<script>"`, self-echo must never truncate daemonFiles.
+  const viaArg = await runSh(['-c', REMOTE_DISCOVERY_SCRIPT]);
+  const parsedArg = parseRemoteSshDiscovery(viaArg.stdout);
+  assert.equal(parsedArg.daemonFiles.length, 1);
+  assert.equal(parsedArg.daemonFiles[0].csrfToken, 'real-sh-token');
+  assert.equal(parsedArg.processes.some(p => p.commandLine.includes('===AGP_PS===')), false);
+
+  // 3) Non-/proc ps+awk branch (macOS/BSD): excludes self PID, wrong UID, awk itself and echoed probe scripts.
+  const psLine = REMOTE_DISCOVERY_SCRIPT.split('\n').find(line => line.includes('ps -ww'));
+  assert.ok(psLine);
+  const awkCmd = psLine.slice(psLine.indexOf('awk ')).replace('"$$"', '"100"');
+  const psFixture = [
+    '100 501 /bin/sh -s',
+    '101 501 /home/u/language_server --standalone',
+    '102 501 awk -v uid=501 ===AGP_PS===',
+    '103 501 /usr/bin/zsh -c printf ===AGP_DAEMON=== agy',
+    '104 502 /home/other/language_server --standalone',
+    '105 501 /home/u/agy --hub --hub-port=45123',
+  ].join('\n');
+  const psScript = `id() { echo 501; }\n${awkCmd} <<'__PS__'\n${psFixture}\n__PS__\n`;
+  const psOut = await runSh(['-s'], psScript);
+  assert.deepEqual(psOut.stdout.trim().split(/\r?\n/), [
+    '101 /home/u/language_server --standalone',
+    '105 /home/u/agy --hub --hub-port=45123',
+  ]);
 });
 
 test('parseRemoteSshDiscovery parses multi-line daemon JSON blocks and pairs live App and IDE processes', () => {

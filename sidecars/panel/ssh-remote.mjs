@@ -9,6 +9,33 @@ import { AntigravityClient } from './client.mjs';
 
 const exec = promisify(execFile);
 
+function execWithInput(file, args, { input = null, ...options } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(file, args, options, (error, stdout, stderr) => {
+      if (error) {
+        if (stdout !== undefined && error.stdout === undefined) error.stdout = stdout;
+        if (stderr !== undefined && error.stderr === undefined) error.stderr = stderr;
+        reject(error);
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+    if (child.stdin) {
+      // Ignore EPIPE / stream-destroyed errors if ssh exits early (e.g. auth failure or ENOENT).
+      child.stdin.on('error', () => {});
+      try {
+        if (typeof input === 'string' || Buffer.isBuffer(input)) {
+          child.stdin.end(input);
+        } else {
+          child.stdin.end();
+        }
+      } catch {
+        // Handled by execFile callback.
+      }
+    }
+  });
+}
+
 const SSH_EXECUTABLE = /^ssh(?:\.exe)?$/i;
 const SSH_FLAGS_WITH_ARG = new Set(['b', 'B', 'c', 'D', 'E', 'e', 'F', 'I', 'i', 'J', 'L', 'l', 'm', 'O', 'o', 'P', 'p', 'Q', 'R', 'S', 'W', 'w']);
 const LOOPBACK_BINDS = new Set(['', '127.0.0.1', '[127.0.0.1]', 'localhost', '::1', '[::1]']);
@@ -328,45 +355,54 @@ export function decodeWebviewRemoteAuthority(hostname) {
   return parseSshRemoteAuthority(decoded);
 }
 
-// Self-contained POSIX sh probe: enumerates same-UID language_server/agy processes
-// and reads bounded regular ~/.gemini/antigravity/daemon/{hub,ls}_*.json files as
-// explicit blocks so pretty-printed multi-line JSON is parsed reliably.
+// Self-contained POSIX sh probe (fed over stdin to `sh -s`): enumerates same-UID
+// language_server/agy processes (excluding probe shell/awk cmdlines) and reads
+// newest-first bounded regular ~/.gemini/antigravity/daemon/{hub,ls}_*.json files
+// without shell globs or IFS word-splitting so zsh/fish/bash/sh hosts behave identically.
 export const REMOTE_DISCOVERY_SCRIPT = [
   "printf '===AGP_PS===\\n'",
   'if [ -d /proc ] && [ -r /proc/self/cmdline ]; then',
   "  u=$(id -u 2>/dev/null || echo '')",
   '  for p in /proc/[0-9]*; do',
+  '    pid="${p#/proc/}"',
+  '    [ "$pid" != "$$" ] || continue',
   '    [ -r "$p/status" ] && [ -r "$p/cmdline" ] || continue',
   '    pu=$(awk \'/^Uid:/ { print $2; exit }\' "$p/status" 2>/dev/null)',
   '    [ -n "$u" ] && [ "$pu" = "$u" ] || continue',
-  '    cmd=$(tr \'\\0\' \' \' < "$p/cmdline" 2>/dev/null)',
-  '    case "$cmd" in *language_server*|*agy*) printf \'%s %s\\n\' "${p#/proc/}" "$cmd" ;; esac',
+  "    cmd=$(tr '\\000\\015\\012' '   ' < \"$p/cmdline\" 2>/dev/null)",
+  '    case "$cmd" in *===AGP_PS===*|*===AGP_DAEMON===*) continue ;; esac',
+  '    case "$cmd" in *language_server*|*agy*) printf \'%s %s\\n\' "$pid" "$cmd" ;; esac',
   '  done',
   'else',
-  '  ps -ww -axo pid=,uid=,args= 2>/dev/null | awk -v uid="$(id -u 2>/dev/null)" \'$2 == uid { p=$1; $1=""; $2=""; sub(/^ +/, ""); if ($0 ~ /language_server|agy/) print p, $0 }\'',
+  '  ps -ww -axo pid=,uid=,args= 2>/dev/null | awk -v uid="$(id -u 2>/dev/null)" -v self="$$" \'$1 != self && $2 == uid { p=$1; $1=""; $2=""; sub(/^ +/, ""); if ($0 ~ /language_server|agy/ && $0 !~ /===AGP_PS===|===AGP_DAEMON===/) print p, $0 }\'',
   'fi',
   "printf '===AGP_DAEMON===\\n'",
   'd="$HOME/.gemini/antigravity/daemon"',
   'if [ -d "$d" ] && [ ! -L "$d" ]; then',
-  "  old_ifs=$IFS; IFS='\n'",
   '  n=0',
-  '  for f in $(ls -1t "$d"/hub_*.json "$d"/ls_*.json 2>/dev/null); do',
+  '  ls -1t -- "$d" 2>/dev/null | while IFS= read -r name; do',
+  '    case "$name" in hub_*.json|ls_*.json) ;; *) continue ;; esac',
+  '    f="$d/$name"',
   '    [ -f "$f" ] && [ ! -L "$f" ] || continue',
   '    n=$((n + 1)); [ "$n" -le 64 ] || break',
-  '    sz=$(wc -c < "$f" 2>/dev/null | tr -d \' \')',
+  "    sz=$(wc -c < \"$f\" 2>/dev/null | tr -d ' \\011')",
   '    case "$sz" in \'\'|*[!0-9]*) continue ;; esac',
   '    [ "$sz" -gt 0 ] && [ "$sz" -le 16384 ] || continue',
-  "    printf '===AGP_FILE:%s===\\n' \"$(basename \"$f\")\"",
-  '    cat "$f"',
+  "    printf '===AGP_FILE:%s===\\n' \"$name\"",
+  '    cat < "$f"',
   "    printf '\\n===AGP_END===\\n'",
   '  done',
-  '  IFS=$old_ifs',
   'fi',
   "printf '===AGP_LOGS===\\n'",
   'ld="$HOME/.antigravity-hub-server/data"',
   'if [ -d "$ld" ] && [ ! -L "$ld" ]; then',
-  "  grep -h 'listening on random port at [0-9]* for HTTP' \"$ld\"/ls-*.log 2>/dev/null | tail -n 16",
+  "  ls -1tr -- \"$ld\" 2>/dev/null | grep '^ls-.*\\.log$' | tail -n 8 | while IFS= read -r ln; do",
+  '    lf="$ld/$ln"',
+  '    [ -f "$lf" ] && [ ! -L "$lf" ] || continue',
+  "    grep 'listening on random port at [0-9]* for HTTP' < \"$lf\" 2>/dev/null | tail -n 16",
+  '  done | tail -n 16',
   'fi',
+  'exit 0',
 ].join('\n');
 
 export function resolveSshBinary(preferredExecutable = null, { exists = existsSync } = {}) {
@@ -385,7 +421,6 @@ export function buildRemoteProbeArgs(target) {
   }
   const args = [
     '-T',
-    '-n',
     '-o', 'BatchMode=yes',
     '-o', 'ConnectTimeout=5',
     '-o', 'NumberOfPasswordPrompts=0',
@@ -411,7 +446,7 @@ export function buildRemoteProbeArgs(target) {
       }
     }
   }
-  args.push('--', target.destination.trim(), REMOTE_DISCOVERY_SCRIPT);
+  args.push('--', target.destination.trim(), 'sh', '-s');
   return args;
 }
 
@@ -434,19 +469,29 @@ function parseRemoteHubPort(commandLine) {
   return count === 1 ? found : null;
 }
 
+function findMarkerLine(text, marker, fromIndex = 0) {
+  const re = new RegExp(`^${marker}\\r?$`, 'gm');
+  re.lastIndex = fromIndex;
+  const match = re.exec(text);
+  if (!match) return null;
+  let end = match.index + match[0].length;
+  if (text[end] === '\n') end += 1;
+  return { start: match.index, end };
+}
+
 export function parseRemoteSshDiscovery(stdout) {
   const text = String(stdout || '');
-  const psIdx = text.indexOf('===AGP_PS===');
-  const daemonIdx = text.indexOf('===AGP_DAEMON===');
-  const logsIdx = text.indexOf('===AGP_LOGS===');
+  const psMarker = findMarkerLine(text, '===AGP_PS===', 0);
+  const daemonSearchFrom = psMarker ? psMarker.end : 0;
+  const daemonMarker = findMarkerLine(text, '===AGP_DAEMON===', daemonSearchFrom);
+  const logsSearchFrom = daemonMarker ? daemonMarker.end : daemonSearchFrom;
+  const logsMarker = findMarkerLine(text, '===AGP_LOGS===', logsSearchFrom);
 
-  const psSection = psIdx >= 0
-    ? text.slice(psIdx + '===AGP_PS==='.length, daemonIdx >= 0 ? daemonIdx : logsIdx >= 0 ? logsIdx : text.length)
-    : '';
-  const daemonSection = daemonIdx >= 0
-    ? text.slice(daemonIdx + '===AGP_DAEMON==='.length, logsIdx >= 0 ? logsIdx : text.length)
-    : '';
-  const logsSection = logsIdx >= 0 ? text.slice(logsIdx + '===AGP_LOGS==='.length) : '';
+  const psEnd = daemonMarker ? daemonMarker.start : logsMarker ? logsMarker.start : text.length;
+  const psSection = psMarker ? text.slice(psMarker.end, psEnd) : '';
+  const daemonEnd = logsMarker ? logsMarker.start : text.length;
+  const daemonSection = daemonMarker ? text.slice(daemonMarker.end, daemonEnd) : '';
+  const logsSection = logsMarker ? text.slice(logsMarker.end) : '';
 
   const processes = [];
   for (const line of psSection.split(/\r?\n/)) {
@@ -455,6 +500,7 @@ export function parseRemoteSshDiscovery(stdout) {
     const pid = integer(match[1]);
     const commandLine = match[2].trim();
     if (!validPid(pid) || !commandLine) continue;
+    if (commandLine.includes('===AGP_PS===') || commandLine.includes('===AGP_DAEMON===')) continue;
     const first = tokenizeCommandLine(commandLine)[0] || '';
     const base = executableBase(first);
     const isLsBinary = /^language_server(?:_(?:linux|macos|darwin)(?:_(?:x64|arm64))?)?(?:\.exe)?$/i.test(base);
@@ -471,7 +517,7 @@ export function parseRemoteSshDiscovery(stdout) {
   }
 
   const daemonFiles = [];
-  const blockPattern = /===AGP_FILE:([^\r\n=]+)===\r?\n([\s\S]*?)\r?\n===AGP_END===/g;
+  const blockPattern = /^===AGP_FILE:([^\r\n=]+)===\r?\n([\s\S]*?)\r?\n===AGP_END===\r?$/gm;
   for (const match of daemonSection.matchAll(blockPattern)) {
     const file = match[1].trim();
     const body = match[2].trim();
@@ -620,7 +666,7 @@ export function matchRemoteIdeCandidates(discovery, { backendPort = null, worksp
   return candidates;
 }
 
-export async function probeRemoteSshHost(target, { run = exec, timeoutMs = 8000, sshBinary = null } = {}) {
+export async function probeRemoteSshHost(target, { run = execWithInput, timeoutMs = 8000, sshBinary = null } = {}) {
   const args = buildRemoteProbeArgs(target);
   const bin = sshBinary || resolveSshBinary(target.executable);
   try {
@@ -628,6 +674,7 @@ export async function probeRemoteSshHost(target, { run = exec, timeoutMs = 8000,
       windowsHide: true,
       timeout: timeoutMs,
       maxBuffer: 1024 * 1024,
+      input: `${REMOTE_DISCOVERY_SCRIPT}\n`,
     });
     return parseRemoteSshDiscovery(stdout);
   } catch (error) {
