@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.19 — 2026-11-26
+
+- Fix weekly quota full-capacity token estimates diverging from active cycle usage and used fraction after official global quota resets or across local multi-account views (#26, regression from #21):
+  - Stop overriding weekly `QuotaEstimator` USD-to-token conversion in `finalizeQuotaWindows()` (`sidecars/panel/usage.mjs`) with the 7-day calendar `computeFamilyRates(days, today)` average, which bled pre-reset days and other local accounts (`scope: 'local'`) into the active account's current `[resetAt - 7d, resetAt]` quota window.
+  - Convert cost-space `estimatedFullUsd` back to `estimatedFullTokens` inside `QuotaEstimator.estimate()` (`sidecars/panel/quota-estimator.mjs`) using the active window's own blended rate (`observedCostUsd / observedTokens`), and prefer the post-anchor delta rate (`effCost / effTokens` or post-upgrade cost sample delta) after mid-cycle resets (`midCycleReset`).
+  - Align the Usage dashboard Overview KPI tooltip (`compat/usage-ui.cjs` → `computeOverviewFinance`) with the inline strip and side panel by preferring `win.estimatedFullTokens` (falling back to the window's own rate before 7-day `days` rates) and include `estimatedFullUsd` and `usedFraction` in `weeklyQuotaSig`.
+- Fix standalone **Antigravity IDE** process discovery on **macOS** failing with *"IDE renderer port does not belong to Antigravity IDE"* (`当前调试端口不属于 Antigravity IDE`) on IDE 2.8.0+ (#28):
+  - Add unquoted space-aware executable extraction (`commandExecutable()` / `isMacosIdeBundlePath()` in `ide/discovery.mjs`) so POSIX `ps` lines for `/Applications/Antigravity IDE.app/Contents/MacOS/Electron` (as well as `Antigravity IDE`, custom space-containing install paths, positional workspace arguments, and `-psn_*` flags) are no longer truncated at the space before `IDE.app` or rejected for using the `Electron` binary name, while continuing to exclude `Contents/Frameworks/... Helper` processes, Desktop `Antigravity.app`, nested `.app/` spoofing, and other apps passing the IDE path as an argument.
+  - Reuse `commandExecutable()` in `agyServer()` and `ideHubPort()` so bundled `agy --hub` and `language_server_macos_*` under `/Applications/Antigravity IDE.app/Contents/...` or space-containing user directories also resolve cleanly.
+  - Update macOS IDE launcher detection and `is_running()` in `compat/launch-config.mjs` to recognize both `Contents/MacOS/Antigravity IDE` and `Contents/MacOS/Electron`.
+
 ## 0.9.18 — 2026-11-25
 
 - Fix Remote-SSH host discovery returning empty `daemonFiles` on Linux/macOS hosts (both `zsh` and `bash`/`sh` login shells) across **Antigravity Desktop App `(SSH: <host>)` windows** and **standalone Antigravity IDE Remote-SSH** (#25, follow-up to #23):

@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看消耗预测、周期用量与 5 小时 / 周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.9.18](https://img.shields.io/badge/version-0.9.18-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.9.19](https://img.shields.io/badge/version-0.9.19-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.34.0](https://img.shields.io/badge/Antigravity-2.34.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.9.18：** 修复 Linux（含默认 `bash` / `zsh`）与非 POSIX 登录 shell 下 Remote-SSH 探测返回空 `daemonFiles` 的问题，同时恢复 **Antigravity 桌面 App `(SSH: <host>)` 窗口**与**独立 Antigravity IDE Remote-SSH** 凭据解析（改为 `ssh -T ... sh -s` 经 `stdin` 传脚本、无通配符遍历及整行锚定解析，#25），并完整包含 `v0.9.17` 的 App SOCKS5 路由与 IDE 启动参数自愈（#23）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.18) · [兼容性](COMPATIBILITY.md)。
+**v0.9.19：** 修复官方全局配额重置后及「本机全部」多账号视图下周额度参考满额 Token 与周期用量/已用比例不符的问题，统一改用当前周窗口自身单价（周期内重置优先使用锚点后单价）并对齐状态条、侧栏与用量概览弹窗（#26）；修复 macOS 独立 **Antigravity IDE 2.8.0+** 因 `Antigravity IDE.app/Contents/MacOS/Electron` 二进制名与未加引号路径空格导致提示「当前调试端口不属于 Antigravity IDE」的问题，并同步兼容包内 `agy --hub` 与 macOS 启动器检测（#28）。[发布说明](https://github.com/ATtacK030130/antigrative-dashboard/releases/tag/v0.9.19) · [兼容性](COMPATIBILITY.md)。
 
 ## 看看效果
 
@@ -66,7 +66,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.9.18.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.9.19.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带

@@ -341,7 +341,8 @@ try {
   await waitUntil(`() => { const w = document.getElementById('ag-pulse-status-bar'); return w?.dataset.density === 'full' && !w.dataset.motion; }`, 'expand from context card');
   assert.equal((await inspect()).ctxCardVisible, true, 'context card remains open when toggling strip mode from footer');
 
-  // Verify Issue #21: Usage dashboard directly uses cost-space estimatedFullUsd ($97.50) instead of token*rate mismatch
+  // Verify Issue #21 & #26: Usage dashboard directly uses cost-space estimatedFullUsd ($97.50)
+  // and keeps weekly fullTokens aligned with quotaWindows.estimatedFullTokens (163.9M, not 7-day days rate 183.7M)
   await evalJs(`() => {
     const sr = document.getElementById('ag-pulse-status-bar').shadowRoot;
     sr.querySelector('[data-card="cache"]').click();
@@ -349,12 +350,15 @@ try {
   }`);
   await waitUntil(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard')?.open === true`, 'usage dashboard open');
   const kpiEst = await evalJs(`() => {
-    const vs = document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot;
+    const sr = document.getElementById('ag-pulse-status-bar').shadowRoot;
+    const vs = sr.getElementById('usage-dashboard').firstElementChild.shadowRoot;
     const card = vs.querySelector('.metric-est');
-    return { val: card?.querySelector('.value')?.textContent, title: card?.title };
+    return { val: card?.querySelector('.value')?.textContent, title: card?.title, stripWeekUsage: sr.getElementById('week-usage-value')?.textContent };
   }`);
   assert.equal(kpiEst.val, '≈$97.50USD', `Usage dashboard should show direct cost-space $97.50, got ${kpiEst.val}`);
   assert.ok(kpiEst.title.includes('等效 API 成本'), `Tooltip should note cost-space basis: ${kpiEst.title}`);
+  assert.ok(kpiEst.title.includes('满额约 163.9M Token'), `Overview tooltip fullTokens must match quotaWindows.estimatedFullTokens (163.9M): ${kpiEst.title}`);
+  assert.ok(kpiEst.stripWeekUsage.includes('约 163.9M 满额'), `Inline strip weekly full ref must match 163.9M: ${kpiEst.stripWeekUsage}`);
   await evalJs(`() => document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot.getElementById('close').click()`);
 
   // 4. Re-collapse to minimal & test dark theme visual

@@ -3,7 +3,6 @@ import {Worker} from 'node:worker_threads';
 import {readFile,writeFile,mkdir,rename,readdir,unlink,open,stat,lstat} from 'node:fs/promises';
 import {join,basename} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
-import {createRequire} from 'node:module';
 import {tokenCount,requestCacheMetrics} from './metrics.mjs';
 import {platformPaths} from '../../compat/platform.mjs';
 import {discoverLocalConversations,conversationId} from './local-conversations.mjs';
@@ -12,7 +11,6 @@ import {delegatedIds} from './delegation.mjs';
 import {collectionFailure} from './collection-state.mjs';
 import {syncAndSummarizeIndex,findForeignRequestIds} from './usage-index.mjs';
 import {QuotaEstimator} from './quota-estimator.mjs';
-const pricing=createRequire(import.meta.url)('../../compat/pricing.cjs')();
 const HASH=/^[a-f0-9]{64}$/,GUID=/^[a-f0-9-]{36}$/i;
 const hash=value=>createHash('sha256').update(value).digest('hex');
 export const LOCAL_SCOPE=hash('ag-pulse:local-unauthenticated');
@@ -54,10 +52,8 @@ function buildQuotaWindowSpecs(groups){
 function quotaWindowMeta(specs){
   return Object.fromEntries(specs.map(s=>[s.id,{resetMinute:s.resetMinute,idle:s.idle}]));
 }
-function finalizeQuotaWindows(specs,counts={},meta=null,{estimator=null,accountKey=null,allowUpdate=true,days=null,today=''}={}){
+function finalizeQuotaWindows(specs,counts={},meta=null,{estimator=null,accountKey=null,allowUpdate=true}={}){
   const out={};
-  const hasDedicatedArgon=specs.some(s=>s.window==='weekly'&&pricing.quotaFamily(s.groupId)==='gemini-argon');
-  const rateFor=Array.isArray(days)&&days.length&&today?pricing.computeFamilyRates(days,today,{hasDedicatedArgon}):null;
   for(const spec of specs){
     const prev=meta?.[spec.id];
     if(prev){
@@ -67,12 +63,10 @@ function finalizeQuotaWindows(specs,counts={},meta=null,{estimator=null,accountK
     const c=counts[spec.id];
     if(!c||!c.requests)continue;
     if(estimator){
-      // Weekly windows convert cost-space full USD to tokens via recent 7-day family rate
-      // (matching Overview KPI tooltips); 5h windows use the window's own blended rate first.
-      const windowRate=typeof c.observedCostUsd==='number'&&c.observedCostUsd>0&&c.observedTokens>0?c.observedCostUsd/c.observedTokens:null;
-      const familyRate=rateFor?rateFor(pricing.quotaFamily(spec.groupId)):null;
-      const recentUsdPerToken=spec.window==='weekly'?(familyRate||windowRate):(windowRate||familyRate);
-      out[spec.id]=estimator.estimate(accountKey,spec,c,{allowUpdate,recentUsdPerToken});
+      // Always convert cost-space full USD back to tokens using the active window's own
+      // observed rate (or post-anchor rate on mid-cycle resets) inside QuotaEstimator,
+      // avoiding pre-reset calendar bleed and cross-account local-scope contamination.
+      out[spec.id]=estimator.estimate(accountKey,spec,c,{allowUpdate});
     }else{
       const usedFraction=typeof spec.remaining==='number'?Math.max(0,Math.min(1,1-spec.remaining)):null;
       const estimatedFullTokens=c.observedTokens>0&&usedFraction!==null&&usedFraction>=0.05?Math.round(c.observedTokens/usedFraction):null;
@@ -397,7 +391,7 @@ export class UsageLedger{
     const cacheTag=scope+':'+today+'|'+(quotaAccount||'');
     const finalize=(rawValue,checkMeta=false,allowUpdate=true)=>{
       if(!specs.length)return rawValue;
-      return {...rawValue,quotaWindows:finalizeQuotaWindows(specs,rawValue._quotaWindowCounts||{},checkMeta?rawValue._quotaWindowMeta||null:null,{estimator:this.quotaEstimator,accountKey:quotaAccount,allowUpdate,days:rawValue.days,today:rawValue.today||today})};
+      return {...rawValue,quotaWindows:finalizeQuotaWindows(specs,rawValue._quotaWindowCounts||{},checkMeta?rawValue._quotaWindowMeta||null:null,{estimator:this.quotaEstimator,accountKey:quotaAccount,allowUpdate})};
     };
     const cached=this.caches.get(cacheKey);
     const fallbackCached=cached||this.findFallbackSummaryCache(cacheTag);
