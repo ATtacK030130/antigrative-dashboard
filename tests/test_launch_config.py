@@ -142,6 +142,70 @@ class LaunchConfigTests(unittest.TestCase):
             self.assertEqual(merged2, merged)
             self.assertEqual(lc.strip_debug_arguments(merged, added), '--profile default -- https://example.com')
 
+    def test_lnk_parser_combines_local_base_path_and_common_path_suffix(self):
+        def build_split_lnk(base_path, suffix, args='', unicode_info=False):
+            flags = 0x02 | 0x80
+            if args:
+                flags |= 0x20
+            hdr = bytearray(76)
+            struct.pack_into('<I', hdr, 0, 0x4C)
+            struct.pack_into('<I', hdr, 0x14, flags)
+
+            ansi_base = base_path.encode('latin1', errors='replace') + b'\x00'
+            ansi_suffix = suffix.encode('latin1', errors='replace') + b'\x00'
+            if unicode_info:
+                info_hdr_len = 0x24
+                lb_off = info_hdr_len
+                cps_off = lb_off + len(ansi_base)
+                uni_base = base_path.encode('utf-16le') + b'\x00\x00'
+                uni_suffix = suffix.encode('utf-16le') + b'\x00\x00'
+                ub_off = cps_off + len(ansi_suffix)
+                ucps_off = ub_off + len(uni_base)
+                info_len = ucps_off + len(uni_suffix)
+                link_info = (
+                    struct.pack('<9I', info_len, info_hdr_len, 0x03, 0, lb_off, 0, cps_off, ub_off, ucps_off)
+                    + ansi_base + ansi_suffix + uni_base + uni_suffix
+                )
+            else:
+                info_hdr_len = 0x1C
+                lb_off = info_hdr_len
+                cps_off = lb_off + len(ansi_base)
+                info_len = cps_off + len(ansi_suffix)
+                link_info = (
+                    struct.pack('<7I', info_len, info_hdr_len, 0x03, 0, lb_off, 0, cps_off)
+                    + ansi_base + ansi_suffix
+                )
+
+            strings = bytearray()
+            if args:
+                strings.extend(struct.pack('<H', len(args)))
+                strings.extend(args.encode('utf-16le'))
+            return bytes(hdr) + link_info + bytes(strings)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ansi_lnk = root / 'Antigravity.lnk'
+            ansi_lnk.write_bytes(build_split_lnk(
+                r'C:\Users\\'.rstrip('\\') + '\\',
+                r'demo\AppData\Local\Programs\antigravity\Antigravity.exe',
+                '--existing',
+                unicode_info=False,
+            ))
+            ansi_info = lc.parse_lnk(ansi_lnk)
+            self.assertEqual(ansi_info['target'], r'C:\Users\demo\AppData\Local\Programs\antigravity\Antigravity.exe')
+            self.assertEqual(ansi_info['args'], '--existing')
+            self.assertTrue(lc.is_antigravity_desktop_shortcut(ansi_lnk, ansi_info))
+
+            uni_lnk = root / 'AntigravityUnicode.lnk'
+            uni_lnk.write_bytes(build_split_lnk(
+                r'C:\Users',
+                r'测试用户\AppData\Local\Programs\antigravity\Antigravity.exe',
+                unicode_info=True,
+            ))
+            uni_info = lc.parse_lnk(uni_lnk)
+            self.assertEqual(uni_info['target'], r'C:\Users\测试用户\AppData\Local\Programs\antigravity\Antigravity.exe')
+            self.assertTrue(lc.is_antigravity_desktop_shortcut(uni_lnk, uni_info))
+
     def test_windows_shortcut_configure_and_rollback(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

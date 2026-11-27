@@ -136,6 +136,70 @@ test('parseLnkBuffer, shortcut filter and argument merging match Desktop shortcu
   assert.deepEqual(mergeDebugArguments(merged.args), { args: merged.args, added: [] });
 });
 
+test('parseLnkBuffer combines LocalBasePath and CommonPathSuffix in ANSI and Unicode LinkInfo', () => {
+  const buildSplitLnk = (basePath, suffix, args = '', unicodeInfo = false) => {
+    let flags = 0x02 | 0x80;
+    if (args) flags |= 0x20;
+    const hdr = Buffer.alloc(76);
+    hdr.writeUInt32LE(0x4c, 0);
+    hdr.writeUInt32LE(flags, 0x14);
+
+    const ansiBase = Buffer.from(basePath + '\0', 'latin1');
+    const ansiSuffix = Buffer.from(suffix + '\0', 'latin1');
+    let linkInfo;
+    if (unicodeInfo) {
+      const infoHdrLen = 0x24;
+      const lbOff = infoHdrLen;
+      const cpsOff = lbOff + ansiBase.length;
+      const uniBase = Buffer.from(basePath + '\0', 'utf16le');
+      const uniSuffix = Buffer.from(suffix + '\0', 'utf16le');
+      const ubOff = cpsOff + ansiSuffix.length;
+      const ucpsOff = ubOff + uniBase.length;
+      const infoLen = ucpsOff + uniSuffix.length;
+      const infoHdr = Buffer.alloc(36);
+      infoHdr.writeUInt32LE(infoLen, 0);
+      infoHdr.writeUInt32LE(infoHdrLen, 4);
+      infoHdr.writeUInt32LE(0x03, 8);
+      infoHdr.writeUInt32LE(lbOff, 16);
+      infoHdr.writeUInt32LE(cpsOff, 24);
+      infoHdr.writeUInt32LE(ubOff, 28);
+      infoHdr.writeUInt32LE(ucpsOff, 32);
+      linkInfo = Buffer.concat([infoHdr, ansiBase, ansiSuffix, uniBase, uniSuffix]);
+    } else {
+      const infoHdrLen = 0x1c;
+      const lbOff = infoHdrLen;
+      const cpsOff = lbOff + ansiBase.length;
+      const infoLen = cpsOff + ansiSuffix.length;
+      const infoHdr = Buffer.alloc(28);
+      infoHdr.writeUInt32LE(infoLen, 0);
+      infoHdr.writeUInt32LE(infoHdrLen, 4);
+      infoHdr.writeUInt32LE(0x03, 8);
+      infoHdr.writeUInt32LE(lbOff, 16);
+      infoHdr.writeUInt32LE(cpsOff, 24);
+      linkInfo = Buffer.concat([infoHdr, ansiBase, ansiSuffix]);
+    }
+
+    const strParts = [];
+    if (args) {
+      const lenBuf = Buffer.alloc(2);
+      lenBuf.writeUInt16LE(args.length, 0);
+      strParts.push(lenBuf, Buffer.from(args, 'utf16le'));
+    }
+    return Buffer.concat([hdr, linkInfo, ...strParts]);
+  };
+
+  const ansiBuf = buildSplitLnk('C:\\Users\\', 'demo\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe', '--flag=1', false);
+  const ansiParsed = parseLnkBuffer(ansiBuf);
+  assert.equal(ansiParsed.target, 'C:\\Users\\demo\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe');
+  assert.equal(ansiParsed.args, '--flag=1');
+  assert.equal(isAntigravityDesktopShortcut('C:\\Users\\demo\\Desktop\\Antigravity.lnk', ansiParsed), true);
+
+  const uniBuf = buildSplitLnk('C:\\Users', '测试用户\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe', '', true);
+  const uniParsed = parseLnkBuffer(uniBuf);
+  assert.equal(uniParsed.target, 'C:\\Users\\测试用户\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe');
+  assert.equal(isAntigravityDesktopShortcut('C:\\Users\\测试用户\\Desktop\\Antigravity.lnk', uniParsed), true);
+});
+
 test('ensureDesktopLaunchConfig uses zero-subprocess fast path and self-heals overwritten shortcuts', async () => {
   const home = await mkdtemp(join(tmpdir(), 'ag-pulse-win-'));
   try {

@@ -104,6 +104,28 @@ export async function inspectHostArchive(appResourcesOrAsar) {
   return result;
 }
 
+function readLnkAnsiCstr(data, start, limit) {
+  let end = data.indexOf(0, start);
+  if (end === -1 || end > limit) end = limit;
+  return data.subarray(start, end).toString('latin1');
+}
+
+function readLnkUtf16Cstr(data, start, limit) {
+  const raw = data.subarray(start, limit);
+  let uend = raw.length;
+  for (let i = 0; i + 1 < raw.length; i += 2) {
+    if (raw[i] === 0 && raw[i + 1] === 0) { uend = i; break; }
+  }
+  return raw.subarray(0, uend).toString('utf16le');
+}
+
+function joinLnkPath(base, suffix) {
+  if (!base || !suffix) return base;
+  const trimmedSuffix = suffix.replace(/^[\\/]+/, '');
+  if (base.endsWith('\\') || base.endsWith('/')) return base + trimmedSuffix;
+  return `${base}\\${trimmedSuffix}`;
+}
+
 export function parseLnkBuffer(data) {
   if (!Buffer.isBuffer(data) || data.length < 76 || data.length > 1048576 || data.readUInt32LE(0) !== 0x4c) {
     return null;
@@ -124,24 +146,37 @@ export function parseLnkBuffer(data) {
     const infoHdrLen = data.readUInt32LE(pos + 4);
     const infoFlags = data.readUInt32LE(pos + 8);
     if (infoLen < 12 || pos + infoLen > data.length) return null;
+    const infoEnd = pos + infoLen;
     if ((infoFlags & 0x01) && infoLen >= 20) {
-      const lbOff = data.readUInt32LE(pos + 16);
-      if (lbOff > 0 && lbOff < infoLen) {
-        let end = data.indexOf(0, pos + lbOff);
-        if (end === -1 || end > pos + infoLen) end = pos + infoLen;
-        target = data.subarray(pos + lbOff, end).toString('latin1');
-      }
+      let localBase = null;
       if (infoHdrLen >= 0x24 && infoLen >= 32) {
         const ubOff = data.readUInt32LE(pos + 28);
         if (ubOff > 0 && ubOff < infoLen) {
-          const raw = data.subarray(pos + ubOff, pos + infoLen);
-          let uend = raw.length;
-          for (let i = 0; i + 1 < raw.length; i += 2) {
-            if (raw[i] === 0 && raw[i + 1] === 0) { uend = i; break; }
-          }
-          target = raw.subarray(0, uend).toString('utf16le');
+          localBase = readLnkUtf16Cstr(data, pos + ubOff, infoEnd);
         }
       }
+      if (localBase === null) {
+        const lbOff = data.readUInt32LE(pos + 16);
+        if (lbOff > 0 && lbOff < infoLen) {
+          localBase = readLnkAnsiCstr(data, pos + lbOff, infoEnd);
+        }
+      }
+
+      let commonSuffix = '';
+      if (infoHdrLen >= 0x24 && infoLen >= 36) {
+        const ucpsOff = data.readUInt32LE(pos + 32);
+        if (ucpsOff > 0 && ucpsOff < infoLen) {
+          commonSuffix = readLnkUtf16Cstr(data, pos + ucpsOff, infoEnd);
+        }
+      }
+      if (!commonSuffix && infoHdrLen >= 0x1c && infoLen >= 28) {
+        const cpsOff = data.readUInt32LE(pos + 24);
+        if (cpsOff > 0 && cpsOff < infoLen) {
+          commonSuffix = readLnkAnsiCstr(data, pos + cpsOff, infoEnd);
+        }
+      }
+
+      target = joinLnkPath(localBase, commonSuffix);
     }
     pos += infoLen;
   }
